@@ -24,11 +24,15 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt has a 72-byte limit, truncate if necessary
+    password_bytes = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
+    return pwd_context.hash(password_bytes)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    # bcrypt has a 72-byte limit, truncate if necessary
+    plain_bytes = plain.encode('utf-8')[:72].decode('utf-8', errors='ignore')
+    return pwd_context.verify(plain_bytes, hashed)
 
 
 # ── JWT helpers ──────────────────────────────────────────
