@@ -16,6 +16,7 @@ from datetime import date
 import structlog
 
 from app.agents.state import AgentState
+from app.utils.json_parser import parse_llm_json
 from app.llm.router import get_llm_router
 from app.rag.engine import get_rag_engine
 
@@ -151,9 +152,9 @@ async def generate_weekly_insight(
             max_tokens=800,
             response_format={"type": "json_object"},
         )
-        data = json.loads(result.content)
+        data = parse_llm_json(result.content)
         data["model"] = result.model
         return data
     except Exception as e:
-        log.error("weekly_insight_failed", error=str(e))
+        log.error("weekly_insight_failed", error=str(e), raw_content=result.content[:200] if 'result' in dir() else None)
         raise

@@ -16,6 +16,7 @@ from typing import Any
 import structlog
 
 from app.agents.state import AgentState
+from app.utils.json_parser import parse_llm_json
 from app.llm.router import get_llm_router
 from app.rag.engine import get_rag_engine
 
@@ -182,11 +183,11 @@ async def generate_daily_advice(
             max_tokens=800,
             response_format={"type": "json_object"},
         )
-        advice = json.loads(result.content)
+        advice = parse_llm_json(result.content)
         advice["model"] = result.model
         return advice
     except Exception as e:
-        log.error("daily_advice_generation_failed", error=str(e))
+        log.error("daily_advice_generation_failed", error=str(e), raw_content=result.content[:200] if 'result' in dir() else None)
         raise
 
 
@@ -241,9 +242,9 @@ async def generate_follow_up_questions(
             max_tokens=500,
             response_format={"type": "json_object"},
         )
-        data = json.loads(result.content)
+        data = parse_llm_json(result.content)
         data["model"] = result.model
         return data
     except Exception as e:
-        log.error("follow_up_generation_failed", error=str(e))
+        log.error("follow_up_generation_failed", error=str(e), raw_content=result.content[:200] if 'result' in dir() else None)
         raise

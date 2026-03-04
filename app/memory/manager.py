@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.llm.router import get_llm_router
 from app.memory.long_term import get_long_term_memory
 from app.memory.short_term import get_short_term_memory
+from app.utils.json_parser import parse_llm_json
 
 log = structlog.get_logger(__name__)
 
@@ -101,8 +102,7 @@ class MemoryManager:
                 response_format={"type": "json_object"},
             )
 
-            import json
-            data = json.loads(result.content)
+            data = parse_llm_json(result.content)
             insights = data if isinstance(data, list) else data.get("insights", [])
 
             for item in insights:

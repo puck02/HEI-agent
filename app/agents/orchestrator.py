@@ -17,6 +17,7 @@ import structlog
 from langgraph.graph import END, StateGraph
 
 from app.agents.health_advisor import health_advisor_node
+from app.utils.json_parser import parse_llm_json
 from app.agents.insight_analyst import insight_analyst_node
 from app.agents.medication_agent import medication_agent_node
 from app.agents.state import AgentState
@@ -79,7 +80,7 @@ async def classify_intent_node(state: AgentState) -> dict:
             max_tokens=50,
             response_format={"type": "json_object"},
         )
-        data = json.loads(result.content)
+        data = parse_llm_json(result.content)
         intent = data.get("intent", "general")
         if intent not in ("health", "medication", "insight", "general"):
             intent = "general"
