@@ -44,7 +44,7 @@ class RAGEngine:
                 await self.client.create_collection(
                     collection_name=name,
                     vectors_config=models.VectorParams(
-                        size=1024,  # embedding-3 dimension
+                        size=2048,  # embedding-3 dimension
                         distance=models.Distance.COSINE,
                     ),
                 )
