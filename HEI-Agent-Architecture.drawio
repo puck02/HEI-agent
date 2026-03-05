@@ -1,0 +1,656 @@
+<mxfile host="65bd71144e">
+    <diagram id="hei-agent-full-arch" name="完整架构图">
+        <mxGraphModel dx="529" dy="324" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="4000" pageHeight="3200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="&lt;font style=&quot;font-size: 28px;&quot;&gt;&lt;b&gt;HEI-Agent 系统架构全景图&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size: 14px; color: #666;&quot;&gt;AI 健康管家多 Agent 后端 — LangGraph + FastAPI + LiteLLM&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="1" vertex="1">
+                    <mxGeometry x="1100" y="20" width="600" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer0" value="&lt;b&gt;Client Layer — HElDairy Android App&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=13;verticalAlign=top;spacingTop=5;dashed=1;dashPattern=8 8;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="100" width="1600" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="android_app" value="&lt;b&gt;HElDairy&lt;/b&gt;&lt;br&gt;Android App&lt;br&gt;&lt;font color=&quot;#999&quot; style=&quot;font-size:10px;&quot;&gt;Kotlin / Jetpack Compose&lt;/font&gt;" style="shape=mxgraph.android.phone2;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="130" width="80" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="api_calls_label" value="&lt;font style=&quot;font-size:11px;&quot;&gt;Retrofit HTTP Client&lt;br&gt;&lt;b&gt;POST&lt;/b&gt; /api/v1/chat&lt;br&gt;&lt;b&gt;POST&lt;/b&gt; /api/v1/health/*&lt;br&gt;&lt;b&gt;POST&lt;/b&gt; /api/v1/medication/*&lt;br&gt;&lt;b&gt;POST&lt;/b&gt; /api/v1/sync/*&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="880" y="115" width="180" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="auth_flow_label" value="&lt;font style=&quot;font-size:11px;&quot;&gt;JWT Auth Flow&lt;br&gt;&lt;b&gt;POST&lt;/b&gt; /auth/register&lt;br&gt;&lt;b&gt;POST&lt;/b&gt; /auth/login&lt;br&gt;&lt;b&gt;POST&lt;/b&gt; /auth/refresh&lt;br&gt;&lt;b&gt;GET&lt;/b&gt; /auth/me&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1100" y="115" width="160" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="sync_label_client" value="&lt;font style=&quot;font-size:11px;&quot;&gt;数据同步 (Client-First)&lt;br&gt;health_entries&lt;br&gt;medications / courses&lt;br&gt;daily_advice / summaries&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1300" y="130" width="180" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#4CAF50;fontSize=13;verticalAlign=top;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="280" width="2000" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer1_title" value="&lt;b&gt;FastAPI Gateway Layer&lt;/b&gt;" style="text;html=1;align=left;fontSize=14;fontColor=#2E7D32;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="285" width="250" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="main_py" value="&lt;b&gt;main.py&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;create_app()&lt;br&gt;lifespan()&lt;br&gt;CORS / Routers&lt;br&gt;GET /health&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#4CAF50;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="430" y="320" width="140" height="80" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;main.py&lt;/b&gt;" link="app/main.py" id="main_link">
+                    <mxCell style="text;html=1;fontSize=1;fillColor=none;strokeColor=none;" parent="main_py" vertex="1">
+                        <mxGeometry width="1" height="1" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Auth Router&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;register / login&lt;br&gt;refresh / me&lt;br&gt;get_current_user()&lt;/font&gt;" link="app/auth/router.py" id="auth_router">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#4CAF50;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="620" y="320" width="140" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Auth Service&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;JWT: HS256&lt;br&gt;bcrypt password&lt;br&gt;create/decode token&lt;/font&gt;" link="app/auth/service.py" id="auth_service">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#4CAF50;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="620" y="415" width="140" height="70" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Chat API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;POST /api/v1/chat&lt;br&gt;→ run_agent()&lt;br&gt;ChatRequest / Response&lt;/font&gt;" link="app/api/v1/chat.py" id="chat_api">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#388E3C;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="810" y="320" width="160" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Health API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;daily-advice&lt;br&gt;follow-up&lt;br&gt;weekly-insight&lt;/font&gt;" link="app/api/v1/health.py" id="health_api">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#4CAF50;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="1020" y="320" width="140" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Medication API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;parse-nlp&lt;br&gt;info-summary&lt;/font&gt;" link="app/api/v1/medication.py" id="med_api">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#4CAF50;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="1200" y="320" width="140" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Sync API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;POST upload&lt;br&gt;GET status&lt;br&gt;Client-First 合并&lt;/font&gt;" link="app/api/v1/sync.py" id="sync_api">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#4CAF50;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="1380" y="320" width="140" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Pydantic Schemas&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;chat.py / health.py&lt;br&gt;medication.py&lt;br&gt;auth/schemas.py&lt;/font&gt;" link="app/schemas/chat.py" id="schemas">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#81C784;fontSize=11;dashed=1;" parent="1" vertex="1">
+                        <mxGeometry x="1560" y="320" width="150" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Config&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;config.py&lt;br&gt;pydantic-settings&lt;br&gt;.env 加载&lt;/font&gt;" link="app/config.py" id="config">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#81C784;fontSize=11;dashed=1;" parent="1" vertex="1">
+                        <mxGeometry x="1750" y="320" width="130" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;database.py&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;AsyncEngine&lt;br&gt;pool_size=10&lt;br&gt;get_db() dep&lt;/font&gt;" link="app/database.py" id="database">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#81C784;fontSize=11;dashed=1;" parent="1" vertex="1">
+                        <mxGeometry x="1920" y="320" width="130" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="e_auth_r2s" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#4CAF50;" parent="1" source="auth_router" target="auth_service" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_client2chat" value="HTTPS" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#1976D2;fontColor=#1976D2;fontSize=10;strokeWidth=2;exitX=0.538;exitY=0.969;exitDx=0;exitDy=0;exitPerimeter=0;" parent="1" source="android_app" target="chat_api" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="763" y="220"/>
+                            <mxPoint x="890" y="220"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="layer2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=13;verticalAlign=top;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="560" width="2400" height="520" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer2_title" value="&lt;b&gt;LangGraph Agent Layer — Multi-Agent Orchestration&lt;/b&gt;" style="text;html=1;align=left;fontSize=14;fontColor=#0D47A1;" parent="1" vertex="1">
+                    <mxGeometry x="220" y="565" width="400" height="25" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;Orchestrator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;orchestrator.py&lt;br&gt;build_orchestrator_graph()&lt;br&gt;run_agent()&lt;/font&gt;" link="app/agents/orchestrator.py" id="orchestrator">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#90CAF9;strokeColor=#1565C0;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="240" y="610" width="170" height="70" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;AgentState&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;state.py — TypedDict&lt;br&gt;user_id, session_id&lt;br&gt;messages, current_intent&lt;br&gt;react_steps, tools_called&lt;br&gt;reflection_passed/scores&lt;br&gt;response, model_used&lt;/font&gt;" link="app/agents/state.py" id="agent_state">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=10;dashed=1;" parent="1" vertex="1">
+                        <mxGeometry x="240" y="710" width="170" height="110" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="lg_start" value="&lt;b&gt;START&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1565C0;strokeColor=#0D47A1;fontColor=#FFFFFF;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="620" width="80" height="50" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;load_context&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;加载对话历史&lt;br&gt;Redis 短期记忆&lt;/font&gt;" link="app/agents/orchestrator.py" id="load_context">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#64B5F6;strokeColor=#1565C0;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="640" y="610" width="150" height="70" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;classify_intent&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;LLM 意图分类&lt;br&gt;→ health | med&lt;br&gt;| insight | general&lt;/font&gt;" link="app/agents/orchestrator.py" id="classify_intent">
+                    <mxCell style="rhombus;whiteSpace=wrap;html=1;fillColor=#42A5F5;strokeColor=#1565C0;fontColor=#FFFFFF;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="850" y="590" width="170" height="110" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Health Advisor&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;健康小助手 (ReAct)&lt;br&gt;health_advisor.py&lt;br&gt;max 3 iterations&lt;/font&gt;" link="app/agents/health_advisor.py" id="health_advisor">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#81D4FA;strokeColor=#0288D1;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1120" y="600" width="170" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Medication Agent&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;用药管家 (ReAct)&lt;br&gt;medication_agent.py&lt;br&gt;max 3 iterations&lt;/font&gt;" link="app/agents/medication_agent.py" id="medication_agent">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#80CBC4;strokeColor=#00897B;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1120" y="710" width="170" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Insight Analyst&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;洞察分析师 (ReAct)&lt;br&gt;insight_analyst.py&lt;br&gt;max 3 iterations&lt;/font&gt;" link="app/agents/insight_analyst.py" id="insight_analyst">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CE93D8;strokeColor=#7B1FA2;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1120" y="820" width="170" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Direct Answer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;通用问答&lt;br&gt;无工具调用&lt;/font&gt;" link="app/agents/orchestrator.py" id="direct_answer">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="1120" y="930" width="170" height="60" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="react_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5FE;strokeColor=#039BE5;dashed=1;dashPattern=5 5;" parent="1" vertex="1">
+                    <mxGeometry x="1350" y="595" width="370" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="react_title" value="&lt;b&gt;ReAct Loop (Reason + Act)&lt;/b&gt;" style="text;html=1;align=center;fontSize=12;fontColor=#01579B;" parent="1" vertex="1">
+                    <mxGeometry x="1370" y="600" width="330" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="react_thought" value="&lt;b&gt;Thought&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;分析问题，决定需要什么信息&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B3E5FC;strokeColor=#0288D1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1370" y="630" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="react_action" value="&lt;b&gt;Action&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;调用工具（Tool Call）&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B3E5FC;strokeColor=#0288D1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1550" y="630" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="react_observe" value="&lt;b&gt;Observation&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;接收工具返回结果&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B3E5FC;strokeColor=#0288D1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1550" y="695" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="react_final" value="&lt;b&gt;Final Answer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;生成最终回复&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#81D4FA;strokeColor=#0277BD;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1370" y="695" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_t2a" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0288D1;" parent="1" source="react_thought" target="react_action" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_a2o" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0288D1;" parent="1" source="react_action" target="react_observe" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_o2t" value="&lt;font style=&quot;font-size:9px;&quot;&gt;继续&lt;br&gt;(max 3次)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0288D1;dashed=1;" parent="1" source="react_observe" target="react_thought" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1750" y="718"/>
+                            <mxPoint x="1750" y="760"/>
+                            <mxPoint x="1445" y="760"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_o2f" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0277BD;" parent="1" source="react_observe" target="react_final" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ha2react" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0288D1;strokeWidth=2;" parent="1" source="health_advisor" target="react_thought" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;Reflection&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;reflection.py&lt;br&gt;5 维质量评分&lt;br&gt;≥8 PASS / &amp;lt;8 RETRY&lt;/font&gt;" link="app/agents/reflection.py" id="reflection">
+                    <mxCell style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFD54F;strokeColor=#F9A825;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1800" y="690" width="200" height="130" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="refl_dims" value="&lt;font style=&quot;font-size:10px;&quot;&gt;&lt;b&gt;评分维度 (0-2 each)&lt;/b&gt;&lt;br&gt;① 完整性：是否回答了问题&lt;br&gt;② 安全边界：无诊断/改药&lt;br&gt;③ 语气：温和不恐慌&lt;br&gt;④ 准确性：基于数据无杜撰&lt;br&gt;⑤ 个性化：使用用户数据&lt;br&gt;&lt;b&gt;总分 ≥ 8/10 → PASS&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=top;fillColor=#FFF9C4;strokeColor=#F9A825;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="1790" y="585" width="220" height="100" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;synthesize&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;存储对话到 Redis&lt;br&gt;记忆巩固&lt;/font&gt;" link="app/agents/orchestrator.py" id="synthesize">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#388E3C;fontSize=11;" parent="1" vertex="1">
+                        <mxGeometry x="2080" y="720" width="150" height="70" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="lg_end" value="&lt;b&gt;END&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#C62828;strokeColor=#B71C1C;fontColor=#FFFFFF;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="2300" y="730" width="80" height="50" as="geometry"/>
+                </mxCell>
+                <UserObject label="" link="app/agents/tools.py" id="tools_box">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;dashed=1;dashPattern=5 5;" parent="1" vertex="1">
+                        <mxGeometry x="1100" y="1020" width="630" height="50" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="tools_title" value="&lt;b&gt;Agent Tools (tools.py)&lt;/b&gt;" style="text;html=1;align=left;fontSize=11;fontColor=#E65100;" parent="1" vertex="1">
+                    <mxGeometry x="1110" y="1020" width="200" height="20" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;Health Tools&lt;/b&gt;&lt;br&gt;query_health_data&lt;br&gt;calculate_bmi&lt;br&gt;get_weather&lt;br&gt;calculate_water_intake&lt;/font&gt;" link="app/agents/tools.py" id="health_tools">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="850" y="1020" width="130" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;Med Tools&lt;/b&gt;&lt;br&gt;search_medication_info&lt;br&gt;check_drug_interaction&lt;br&gt;query_medication_records&lt;/font&gt;" link="app/agents/tools.py" id="med_tools">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="1000" y="1020" width="140" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;Insight Tools&lt;/b&gt;&lt;br&gt;analyze_health_trend&lt;br&gt;generate_weekly_summary&lt;br&gt;compare_periods&lt;/font&gt;" link="app/agents/tools.py" id="insight_tools">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="1160" y="1020" width="140" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="e_s2lc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#1565C0;strokeWidth=2;" parent="1" source="lg_start" target="load_context" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_lc2ci" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#1565C0;strokeWidth=2;" parent="1" source="load_context" target="classify_intent" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ci2ha" value="health" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0288D1;fontSize=10;fontColor=#0288D1;strokeWidth=2;" parent="1" source="classify_intent" target="health_advisor" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1100" y="645"/>
+                            <mxPoint x="1100" y="645"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ci2ma" value="medication" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#00897B;fontSize=10;fontColor=#00897B;strokeWidth=2;" parent="1" source="classify_intent" target="medication_agent" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1110" y="645"/>
+                            <mxPoint x="1110" y="750"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ci2ia" value="insight" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#7B1FA2;fontSize=10;fontColor=#7B1FA2;strokeWidth=2;" parent="1" source="classify_intent" target="insight_analyst" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1100" y="645"/>
+                            <mxPoint x="1100" y="860"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ci2da" value="general" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#546E7A;fontSize=10;fontColor=#546E7A;strokeWidth=2;" parent="1" source="classify_intent" target="direct_answer" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1030" y="645"/>
+                            <mxPoint x="1030" y="960"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ha2ref" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#F9A825;strokeWidth=2;" parent="1" source="react_final" target="reflection" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ma2ref" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#F9A825;strokeWidth=2;" parent="1" source="medication_agent" target="reflection" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1320" y="750"/>
+                            <mxPoint x="1320" y="755"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ia2ref" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#F9A825;strokeWidth=2;" parent="1" source="insight_analyst" target="reflection" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1320" y="860"/>
+                            <mxPoint x="1320" y="810"/>
+                            <mxPoint x="1900" y="810"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_da2ref" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#F9A825;strokeWidth=1;dashed=1;" parent="1" source="direct_answer" target="synthesize" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1205" y="980"/>
+                            <mxPoint x="2155" y="980"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ref2syn" value="&lt;font color=&quot;#388E3C&quot;&gt;PASS ≥8&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#388E3C;strokeWidth=2;fontSize=11;" parent="1" source="reflection" target="synthesize" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ref2retry" value="&lt;font color=&quot;#C62828&quot;&gt;FAIL &amp;lt;8&lt;br&gt;(max 2)&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#C62828;strokeWidth=2;fontSize=10;dashed=1;" parent="1" source="reflection" target="health_advisor" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1900" y="870"/>
+                            <mxPoint x="1080" y="870"/>
+                            <mxPoint x="1080" y="620"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_syn2end" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#C62828;strokeWidth=2;" parent="1" source="synthesize" target="lg_end" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_chat2orch" value="run_agent()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#1565C0;strokeWidth=2;fontSize=10;fontColor=#1565C0;" parent="1" source="chat_api" target="orchestrator" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="890" y="510"/>
+                            <mxPoint x="325" y="510"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ha2ht" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#E65100;dashed=1;fontSize=9;" parent="1" source="health_advisor" target="health_tools" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1060" y="620"/>
+                            <mxPoint x="1060" y="900"/>
+                            <mxPoint x="915" y="900"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ma2mt" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#E65100;dashed=1;fontSize=9;" parent="1" source="medication_agent" target="med_tools" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1070" y="750"/>
+                            <mxPoint x="1070" y="1060"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ia2it" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#E65100;dashed=1;fontSize=9;" parent="1" source="insight_analyst" target="insight_tools" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1205" y="910"/>
+                            <mxPoint x="1230" y="910"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="layer3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;fontSize=13;verticalAlign=top;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="1850" y="1020" width="750" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer3_title" value="&lt;b&gt;LLM Router Layer&lt;/b&gt;" style="text;html=1;align=left;fontSize=14;fontColor=#BF360C;" parent="1" vertex="1">
+                    <mxGeometry x="1870" y="1025" width="200" height="25" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;LLM Router&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;router.py&lt;br&gt;LLMRouter class&lt;br&gt;chat() / embed()&lt;br&gt;failover + cooldown&lt;/font&gt;" link="app/llm/router.py" id="llm_router">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1870" y="1060" width="160" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="deepseek" value="&lt;b&gt;① DeepSeek&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;deepseek-chat&lt;br&gt;主力推理&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCC80;strokeColor=#EF6C00;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="2080" y="1055" width="120" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="glm" value="&lt;b&gt;② 智谱 GLM&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;glm-4-flash&lt;br&gt;备选 (免费额度)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCC80;strokeColor=#EF6C00;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="2230" y="1055" width="120" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="openai" value="&lt;b&gt;③ OpenAI&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;gpt-4o-mini&lt;br&gt;最终备选&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCC80;strokeColor=#EF6C00;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="2380" y="1055" width="120" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="embedding" value="&lt;b&gt;Embedding&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;智谱 embedding-3&lt;br&gt;2048 维&lt;br&gt;aembedding()&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="2080" y="1120" width="120" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_lr2ds" value="failover →" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#EF6C00;fontSize=9;fontColor=#BF360C;" parent="1" source="llm_router" target="deepseek" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ds2glm" value="→" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#EF6C00;fontSize=9;" parent="1" source="deepseek" target="glm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_glm2oai" value="→" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#EF6C00;fontSize=9;" parent="1" source="glm" target="openai" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontSize=13;verticalAlign=top;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="1140" width="800" height="260" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer4_title" value="&lt;b&gt;RAG Layer — Retrieval Augmented Generation&lt;/b&gt;" style="text;html=1;align=left;fontSize=14;fontColor=#4A148C;" parent="1" vertex="1">
+                    <mxGeometry x="220" y="1145" width="400" height="25" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;RAG Engine&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;engine.py&lt;br&gt;retrieve() / retrieve_as_context()&lt;br&gt;ensure_collections()&lt;br&gt;rerank_top_k=20 → top_k=5&lt;/font&gt;" link="app/rag/engine.py" id="rag_engine">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CE93D8;strokeColor=#6A1B9A;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="220" y="1185" width="220" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Ingest Pipeline&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;ingest.py&lt;br&gt;RecursiveCharacterTextSplitter&lt;br&gt;chunk=800 / overlap=200&lt;br&gt;支持 txt/md/pdf&lt;/font&gt;" link="app/rag/ingest.py" id="rag_ingest">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;fontSize=10;" parent="1" vertex="1">
+                        <mxGeometry x="220" y="1290" width="220" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="qdrant_health" value="&lt;b&gt;health_knowledge&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;健康知识&lt;br&gt;2048 维 / Cosine&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#E1BEE7;strokeColor=#6A1B9A;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="510" y="1180" width="130" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="qdrant_med" value="&lt;b&gt;medication_info&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;药品信息&lt;br&gt;2048 维 / Cosine&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#E1BEE7;strokeColor=#6A1B9A;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="670" y="1180" width="130" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="qdrant_tcm" value="&lt;b&gt;tcm_wellness&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;中医养生&lt;br&gt;2048 维 / Cosine&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#E1BEE7;strokeColor=#6A1B9A;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="1180" width="130" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="kb_dir" value="&lt;font style=&quot;font-size:10px;&quot;&gt;📂 data/knowledge/&lt;br&gt;├── health/&lt;br&gt;├── medication/&lt;br&gt;└── tcm/&lt;/font&gt;" style="text;html=1;align=left;fillColor=#F3E5F5;strokeColor=#9C27B0;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="510" y="1290" width="150" height="80" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;font style=&quot;font-size:10px;&quot;&gt;&lt;b&gt;ingest_knowledge.py&lt;/b&gt;&lt;br&gt;scripts/&lt;/font&gt;" link="scripts/ingest_knowledge.py" id="ingest_script">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#9C27B0;fontSize=10;dashed=1;" parent="1" vertex="1">
+                        <mxGeometry x="700" y="1300" width="150" height="50" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="e_rag2qh" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6A1B9A;" parent="1" source="rag_engine" target="qdrant_health" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_rag2qm" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6A1B9A;" parent="1" source="rag_engine" target="qdrant_med" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_rag2qt" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6A1B9A;" parent="1" source="rag_engine" target="qdrant_tcm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ingest2q" value="upsert" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6A1B9A;dashed=1;fontSize=9;" parent="1" source="rag_ingest" target="qdrant_med" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="470" y="1330"/>
+                            <mxPoint x="470" y="1270"/>
+                            <mxPoint x="735" y="1270"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="layer5" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8EAF6;strokeColor=#283593;fontSize=13;verticalAlign=top;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="1060" y="1140" width="720" height="260" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer5_title" value="&lt;b&gt;Memory Layer — 认知记忆系统&lt;/b&gt;" style="text;html=1;align=left;fontSize=14;fontColor=#1A237E;" parent="1" vertex="1">
+                    <mxGeometry x="1080" y="1145" width="300" height="25" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;MemoryManager&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;manager.py&lt;br&gt;recall() / memorize()&lt;br&gt;extract_and_store_insights()&lt;/font&gt;" link="app/memory/manager.py" id="memory_manager">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9FA8DA;strokeColor=#283593;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1080" y="1185" width="190" height="75" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Short-Term Memory&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;short_term.py&lt;br&gt;Redis (stm:{session})&lt;br&gt;TTL = 24h&lt;br&gt;max_turns = 20&lt;br&gt;滑动窗口&lt;/font&gt;" link="app/memory/short_term.py" id="short_term">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C5CAE9;strokeColor=#283593;fontSize=10;" parent="1" vertex="1">
+                        <mxGeometry x="1310" y="1180" width="150" height="90" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Long-Term Memory&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;long_term.py&lt;br&gt;PostgreSQL + pgvector&lt;br&gt;store() / recall()&lt;br&gt;decay_rate = 0.95&lt;br&gt;cosine similarity&lt;/font&gt;" link="app/memory/long_term.py" id="long_term">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C5CAE9;strokeColor=#283593;fontSize=10;" parent="1" vertex="1">
+                        <mxGeometry x="1500" y="1180" width="150" height="90" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="mem_types" value="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;Memory Types:&lt;/b&gt;&lt;br&gt;• health_pattern — 健康模式&lt;br&gt;• preference — 用户偏好&lt;br&gt;• medical_history — 病史&lt;br&gt;• conversation_summary — 对话摘要&lt;/font&gt;" style="text;html=1;align=left;fillColor=#E8EAF6;strokeColor=#5C6BC0;rounded=1;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="1310" y="1290" width="210" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_mm2st" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#283593;" parent="1" source="memory_manager" target="short_term" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_mm2lt" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#283593;" parent="1" source="memory_manager" target="long_term" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer6" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBE9E7;strokeColor=#BF360C;fontSize=13;verticalAlign=top;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="1850" y="1240" width="750" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer6_title" value="&lt;b&gt;MCP Layer — Model Context Protocol Tools&lt;/b&gt;" style="text;html=1;align=left;fontSize=14;fontColor=#BF360C;" parent="1" vertex="1">
+                    <mxGeometry x="1870" y="1245" width="400" height="25" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;MCP Server&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;server.py&lt;br&gt;SSE Transport&lt;br&gt;list_tools / call_tool&lt;/font&gt;" link="app/mcp/server.py" id="mcp_server">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCBC;strokeColor=#BF360C;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1870" y="1280" width="150" height="70" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;calculator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;safe eval&lt;br&gt;math functions&lt;/font&gt;" link="app/mcp/tools/calculator.py" id="mcp_calc">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFAB91;strokeColor=#BF360C;fontSize=10;" parent="1" vertex="1">
+                        <mxGeometry x="2060" y="1280" width="110" height="50" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;weather&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;wttr.in API&lt;br&gt;免费无Key&lt;/font&gt;" link="app/mcp/tools/weather.py" id="mcp_weather">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFAB91;strokeColor=#BF360C;fontSize=10;" parent="1" vertex="1">
+                        <mxGeometry x="2190" y="1280" width="110" height="50" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;web_search&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;DuckDuckGo API&lt;br&gt;免费无Key&lt;/font&gt;" link="app/mcp/tools/web_search.py" id="mcp_search">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFAB91;strokeColor=#BF360C;fontSize=10;" parent="1" vertex="1">
+                        <mxGeometry x="2320" y="1280" width="110" height="50" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;health_data_query&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;&quot;&gt;查 PostgreSQL&lt;br&gt;真实健康数据&lt;/font&gt;" link="app/mcp/tools/health_data_query.py" id="mcp_health_q">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFAB91;strokeColor=#BF360C;fontSize=10;" parent="1" vertex="1">
+                        <mxGeometry x="2450" y="1280" width="130" height="50" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="e_mcp2calc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#BF360C;" parent="1" source="mcp_server" target="mcp_calc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_mcp2w" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#BF360C;" parent="1" source="mcp_server" target="mcp_weather" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_mcp2s" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#BF360C;" parent="1" source="mcp_server" target="mcp_search" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_mcp2hq" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#BF360C;" parent="1" source="mcp_server" target="mcp_health_q" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer7" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#37474F;fontSize=13;verticalAlign=top;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="1470" width="2400" height="260" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer7_title" value="&lt;b&gt;Infrastructure Layer — Docker Compose Services&lt;/b&gt;" style="text;html=1;align=left;fontSize=14;fontColor=#263238;" parent="1" vertex="1">
+                    <mxGeometry x="220" y="1475" width="400" height="25" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;PostgreSQL 16&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;+ pgvector&lt;br&gt;hel-postgres :5432&lt;/font&gt;" link="docker-compose.yml" id="postgres">
+                    <mxCell style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#CFD8DC;strokeColor=#37474F;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="300" y="1520" width="180" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="pg_tables" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#78909C;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="250" y="1620" width="280" height="90" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;users&lt;/b&gt;&lt;/font&gt;" link="app/models/user.py" id="tbl_users">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="260" y="1625" width="60" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;health_entries&lt;/b&gt;&lt;/font&gt;" link="app/models/health_data.py" id="tbl_health">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="330" y="1625" width="85" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;question_responses&lt;/b&gt;&lt;/font&gt;" link="app/models/health_data.py" id="tbl_qr">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="425" y="1625" width="95" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;daily_advice&lt;/b&gt;&lt;/font&gt;" link="app/models/health_data.py" id="tbl_advice">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="260" y="1655" width="70" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;daily_summaries&lt;/b&gt;&lt;/font&gt;" link="app/models/health_data.py" id="tbl_summary">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="340" y="1655" width="90" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;medications&lt;/b&gt;&lt;/font&gt;" link="app/models/medication.py" id="tbl_meds">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="440" y="1655" width="70" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;med_courses&lt;/b&gt;&lt;/font&gt;" link="app/models/medication.py" id="tbl_courses">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="260" y="1685" width="70" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;memory_entries&lt;/b&gt;&lt;/font&gt;" link="app/models/memory.py" id="tbl_memory">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="340" y="1685" width="85" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;insight_reports&lt;/b&gt;&lt;/font&gt;" link="app/models/health_data.py" id="tbl_insight">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B0BEC5;strokeColor=#546E7A;fontSize=9;" parent="1" vertex="1">
+                        <mxGeometry x="435" y="1685" width="85" height="25" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Redis 7&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;hel-redis :6379&lt;br&gt;appendonly=yes&lt;/font&gt;" link="docker-compose.yml" id="redis">
+                    <mxCell style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#FFCDD2;strokeColor=#C62828;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="700" y="1520" width="180" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="redis_keys" value="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;Key Pattern:&lt;/b&gt;&lt;br&gt;stm:{session_id}&lt;br&gt;JSON list of messages&lt;br&gt;TTL: 86400s (24h)&lt;/font&gt;" style="text;html=1;align=left;fillColor=#FFEBEE;strokeColor=#E53935;rounded=1;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="1620" width="170" height="70" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;Qdrant&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;hel-qdrant :6333&lt;br&gt;3 Collections&lt;/font&gt;" link="docker-compose.yml" id="qdrant">
+                    <mxCell style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#E1BEE7;strokeColor=#6A1B9A;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1100" y="1520" width="180" height="80" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="qdrant_detail" value="&lt;font style=&quot;font-size:9px;&quot;&gt;&lt;b&gt;Collections:&lt;/b&gt;&lt;br&gt;• health_knowledge (健康知识)&lt;br&gt;• medication_info (药品信息)&lt;br&gt;• tcm_wellness (中医养生)&lt;br&gt;&lt;b&gt;Vector:&lt;/b&gt; 2048 dim, Cosine&lt;br&gt;&lt;b&gt;Embedding:&lt;/b&gt; 智谱 embedding-3&lt;/font&gt;" style="text;html=1;align=left;fillColor=#F3E5F5;strokeColor=#9C27B0;rounded=1;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="1080" y="1620" width="220" height="90" as="geometry"/>
+                </mxCell>
+                <UserObject label="&lt;b&gt;hel-agent&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;FastAPI App :8000&lt;br&gt;Python 3.11&lt;br&gt;Docker Container&lt;/font&gt;" link="Dockerfile" id="docker_app">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#388E3C;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                        <mxGeometry x="1500" y="1530" width="170" height="70" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;docker-compose.yml&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;4 services&lt;br&gt;hel-network (bridge)&lt;br&gt;3 named volumes&lt;/font&gt;" link="docker-compose.yml" id="docker_compose">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#37474F;fontSize=11;dashed=1;" parent="1" vertex="1">
+                        <mxGeometry x="1750" y="1530" width="180" height="70" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Scripts&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;init_db.py (--seed)&lt;br&gt;ingest_knowledge.py&lt;/font&gt;" link="scripts/init_db.py" id="scripts">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#37474F;fontSize=11;dashed=1;" parent="1" vertex="1">
+                        <mxGeometry x="2000" y="1530" width="180" height="60" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <UserObject label="&lt;b&gt;Alembic&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;DB 迁移管理&lt;br&gt;alembic.ini&lt;/font&gt;" link="alembic/env.py" id="alembic">
+                    <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#37474F;fontSize=11;dashed=1;" parent="1" vertex="1">
+                        <mxGeometry x="2240" y="1530" width="140" height="60" as="geometry"/>
+                    </mxCell>
+                </UserObject>
+                <mxCell id="e_st2redis" value="Redis" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#C62828;strokeWidth=2;fontSize=10;fontColor=#C62828;" parent="1" source="short_term" target="redis" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1385" y="1450"/>
+                            <mxPoint x="790" y="1450"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_lt2pg" value="PostgreSQL" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#37474F;strokeWidth=2;fontSize=10;fontColor=#37474F;" parent="1" source="long_term" target="postgres" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1575" y="1430"/>
+                            <mxPoint x="390" y="1430"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_rag2qdrant" value="Qdrant" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6A1B9A;strokeWidth=2;fontSize=10;fontColor=#6A1B9A;" parent="1" source="rag_engine" target="qdrant" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="330" y="1420"/>
+                            <mxPoint x="1190" y="1420"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_agents2llm" value="LLM 调用" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#E65100;strokeWidth=2;fontSize=10;fontColor=#E65100;" parent="1" source="classify_intent" target="llm_router" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="935" y="550"/>
+                            <mxPoint x="2650" y="550"/>
+                            <mxPoint x="2650" y="1100"/>
+                            <mxPoint x="1950" y="1100"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_agents2rag" value="RAG 检索" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6A1B9A;strokeWidth=2;fontSize=10;fontColor=#6A1B9A;dashed=1;" parent="1" source="layer2" target="rag_engine" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1205" y="1120"/>
+                            <mxPoint x="330" y="1120"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_orch2mem" value="记忆存取" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#283593;strokeWidth=2;fontSize=10;fontColor=#283593;dashed=1;" parent="1" source="load_context" target="memory_manager" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="715" y="690"/>
+                            <mxPoint x="715" y="1120"/>
+                            <mxPoint x="1175" y="1120"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#9E9E9E;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="2150" y="1620" width="400" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_title" value="&lt;b&gt;图例 Legend&lt;/b&gt;" style="text;html=1;align=left;fontSize=12;fontColor=#333;" parent="1" vertex="1">
+                    <mxGeometry x="2165" y="1625" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend1" value="&lt;font style=&quot;font-size:10px;&quot;&gt;🟢 API Gateway Layer (FastAPI)&lt;br&gt;🔵 Agent Layer (LangGraph)&lt;br&gt;🟠 LLM Router (LiteLLM failover)&lt;/font&gt;" style="text;html=1;align=left;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="2165" y="1645" width="190" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend2" value="&lt;font style=&quot;font-size:10px;&quot;&gt;🟣 RAG (Qdrant vector search)&lt;br&gt;🔷 Memory (Redis + PostgreSQL)&lt;br&gt;🔴 MCP Tools (外部/内部工具)&lt;br&gt;⬜ Infrastructure (Docker)&lt;/font&gt;" style="text;html=1;align=left;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="2360" y="1645" width="190" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="click_hint" value="&lt;font style=&quot;font-size:11px; color:#1565C0;&quot;&gt;💡 &lt;b&gt;提示: 点击任意节点可跳转到对应源代码文件&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="70" width="400" height="25" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

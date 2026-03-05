@@ -30,16 +30,55 @@
 
 ## 技术栈
 
-| 层级 | 技术 | 说明 |
-|------|------|------|
-| Agent 框架 | LangGraph ≥ 0.2.40 | 有状态图、条件路由、checkpointer |
-| LLM Router | LiteLLM | DeepSeek/GLM/OpenAI 自动 failover |
-| 向量数据库 | Qdrant | 多 collection RAG 知识库 |
-| 关系数据库 | PostgreSQL 16 + pgvector | 用户数据、长期记忆 |
-| 缓存 | Redis 7 | 短期会话记忆 |
-| API 框架 | FastAPI | 异步、自动 OpenAPI 文档 |
-| 认证 | JWT (PyJWT) | 多用户、无状态 |
-| 工具协议 | MCP (Model Context Protocol) | 标准化工具调用 |
+### 核心组件
+
+| 层级 | 技术 | 版本/型号 | 说明 |
+|------|------|----------|------|
+| Agent 框架 | LangGraph | ≥ 0.2.40 | 有状态图、条件路由、checkpointer、ReAct 循环 |
+| LLM Router | LiteLLM | - | 多 Provider 统一接口、自动 failover |
+| 向量数据库 | Qdrant | ≥ 1.7 | 3 个 Collection、Cosine 相似度 |
+| 关系数据库 | PostgreSQL | 16 + pgvector | 用户数据、长期记忆、向量检索 |
+| 缓存 | Redis | 7 | 短期会话记忆、TTL 自动过期 |
+| API 框架 | FastAPI | ≥ 0.109 | 异步、自动 OpenAPI、Pydantic v2 |
+| 认证 | JWT (PyJWT) | - | HS256 算法、Access + Refresh Token |
+| 工具协议 | MCP | v1 | Model Context Protocol 标准化工具调用 |
+
+### LLM 模型配置
+
+| Provider | 模型 | 用途 | 
+|----------|------|------|
+| **DeepSeek** | `deepseek-chat` | 
+| **智谱 GLM** | `glm-4.7` | 
+| **OpenAI** | `gpt-4o-mini` | 
+
+**Failover 策略**：连续失败 3 次 → 冷却 5 分钟 → 自动重试
+
+### Embedding 配置
+
+| 配置项 | 值 | 说明 |
+|--------|-----|------|
+| Provider | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` |
+| Model | `embedding-3` | 智谱最新 Embedding 模型 |
+| 维度 | **2048** | 向量维度 |
+| 调用方式 | LiteLLM `aembedding()` | 统一异步接口 |
+
+### RAG 配置
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `chunk_size` | 800 | 文档分块大小（字符） |
+| `chunk_overlap` | 200 | 分块重叠（保证上下文连续） |
+| `rerank_top_k` | 20 | 初筛候选数量 |
+| `top_k` | 5 | 最终返回结果数 |
+| 相似度算法 | Cosine Distance | `models.Distance.COSINE` |
+
+### Memory 配置
+
+| 记忆类型 | 存储 | 配置 |
+|----------|------|------|
+| 短期记忆 | Redis | TTL = 24h, max_turns = 20 |
+| 长期记忆 | PostgreSQL + pgvector | decay_rate = 0.95, 带向量 |
+| 语义记忆 | Qdrant `user_semantic` | 用户健康画像、偏好（规划中） |
 
 ## 快速开始
 
