@@ -1,11 +1,19 @@
 """
 Orchestrator Agent — LangGraph Supervisor that routes to sub-agents.
 
+Architecture: Router + ReAct + Reflection
+
 Graph flow:
-  START → load_context → classify_intent ─┬─ health  → health_advisor  → synthesize → END
-                                           ├─ med     → medication_agent → synthesize → END
-                                           ├─ insight → insight_analyst  → synthesize → END
-                                           └─ general → direct_answer    → synthesize → END
+  START → load_context → classify_intent ─┬─ health  → health_advisor (ReAct) ─┐
+                                           ├─ med     → medication_agent (ReAct)─┤
+                                           ├─ insight → insight_analyst (ReAct) ─┤
+                                           └─ general → direct_answer           ─┘
+                                                                                  │
+                                           ┌──────────────────────────────────────┘
+                                           ▼
+                                      reflection ─── pass ───→ synthesize → END
+                                           │
+                                           └─── retry (max 2) ─→ re-route to agent
 """
 
 from __future__ import annotations
@@ -17,6 +25,7 @@ import structlog
 from langgraph.graph import END, StateGraph
 
 from app.agents.health_advisor import health_advisor_node
+from app.agents.reflection import reflection_node, should_retry_reflection
 from app.utils.json_parser import parse_llm_json
 from app.agents.insight_analyst import insight_analyst_node
 from app.agents.medication_agent import medication_agent_node
@@ -169,16 +178,17 @@ def route_to_agent(state: AgentState) -> str:
 
 
 def build_orchestrator_graph() -> StateGraph:
-    """Build and compile the orchestrator LangGraph."""
+    """Build and compile the orchestrator LangGraph with ReAct + Reflection."""
     graph = StateGraph(AgentState)
 
     # Add nodes
     graph.add_node("load_context", load_context_node)
     graph.add_node("classify_intent", classify_intent_node)
-    graph.add_node("health_advisor", health_advisor_node)
-    graph.add_node("medication_agent", medication_agent_node)
-    graph.add_node("insight_analyst", insight_analyst_node)
+    graph.add_node("health_advisor", health_advisor_node)      # ReAct enabled
+    graph.add_node("medication_agent", medication_agent_node)  # ReAct enabled
+    graph.add_node("insight_analyst", insight_analyst_node)    # ReAct enabled
     graph.add_node("direct_answer", direct_answer_node)
+    graph.add_node("reflection", reflection_node)              # NEW: Reflection
     graph.add_node("synthesize", synthesize_node)
 
     # Set entry point
@@ -199,11 +209,25 @@ def build_orchestrator_graph() -> StateGraph:
         },
     )
 
-    # All sub-agents → synthesize → END
-    graph.add_edge("health_advisor", "synthesize")
-    graph.add_edge("medication_agent", "synthesize")
-    graph.add_edge("insight_analyst", "synthesize")
-    graph.add_edge("direct_answer", "synthesize")
+    # All sub-agents → Reflection (instead of directly to synthesize)
+    graph.add_edge("health_advisor", "reflection")
+    graph.add_edge("medication_agent", "reflection")
+    graph.add_edge("insight_analyst", "reflection")
+    graph.add_edge("direct_answer", "reflection")
+
+    # Reflection → Conditional: retry specific agent or done
+    graph.add_conditional_edges(
+        "reflection",
+        should_retry_reflection,
+        {
+            "health_advisor": "health_advisor",      # Retry health advisor
+            "medication_agent": "medication_agent",  # Retry medication agent
+            "insight_analyst": "insight_analyst",    # Retry insight analyst
+            "direct_answer": "direct_answer",        # Retry direct answer
+            "done": "synthesize",                    # Pass through to save memory
+        },
+    )
+
     graph.add_edge("synthesize", END)
 
     return graph
@@ -232,7 +256,9 @@ async def run_agent(
     """
     High-level API: run the full orchestrator pipeline.
 
-    Returns: {response, agent_used, model_used, session_id}
+    Pipeline: load_context → classify_intent → sub-agent (ReAct) → reflection → synthesize
+
+    Returns: {response, agent_used, model_used, session_id, reflection_scores}
     """
     orchestrator = get_orchestrator()
 
@@ -248,6 +274,14 @@ async def run_agent(
         "rag_context": "",
         "memory_context": {},
         "tool_outputs": [],
+        # ReAct fields
+        "react_steps": [],
+        "tools_called": [],
+        # Reflection fields
+        "reflection_passed": False,
+        "reflection_retry_count": 0,
+        "reflection_scores": {},
+        # Output fields
         "response": "",
         "model_used": "",
         "agent_used": "",
@@ -260,4 +294,6 @@ async def run_agent(
         "agent_used": result.get("agent_used", "unknown"),
         "model_used": result.get("model_used", ""),
         "session_id": session_id,
+        "tools_called": result.get("tools_called", []),
+        "reflection_scores": result.get("reflection_scores", {}),
     }

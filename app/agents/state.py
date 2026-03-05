@@ -1,5 +1,8 @@
 """
 Shared Agent state definition for all LangGraph agents.
+
+State flows through the LangGraph pipeline:
+1. load_context → classify_intent → sub-agent (ReAct) → reflection → synthesize
 """
 
 from __future__ import annotations
@@ -29,6 +32,15 @@ class AgentState(TypedDict, total=False):
     rag_context: str       # Retrieved knowledge from RAG
     memory_context: dict   # Short-term + long-term memory
     tool_outputs: list[str]  # Results from MCP tool calls
+
+    # ── ReAct Intermediate ───────────────────────────────
+    react_steps: list[dict]  # ReAct thinking steps [{thought, action, observation}]
+    tools_called: list[str]  # Names of tools invoked during ReAct
+
+    # ── Reflection ───────────────────────────────────────
+    reflection_passed: bool        # Whether reflection check passed
+    reflection_retry_count: int    # Number of reflection retries (max 2)
+    reflection_scores: dict        # Detailed scores from reflection
 
     # ── Output ───────────────────────────────────────────
     response: str          # Final response to user

@@ -127,14 +127,107 @@ curl -X POST http://localhost:8000/api/v1/chat \
 
 ## Multi-Agent 系统
 
-### Orchestrator（编排器）
+### 架构流程图
 
 ```
-START → load_context → classify_intent ─┬─ health  → health_advisor  → synthesize → END
-                                         ├─ med     → medication_agent → synthesize → END
-                                         ├─ insight → insight_analyst  → synthesize → END
-                                         └─ general → direct_answer    → synthesize → END
+                       ┌─────────────────────────────────────────────────────────┐
+                       │                  LangGraph StateGraph                   │
+                       └─────────────────────────────────────────────────────────┘
+                                                │
+                                                ▼
+                       ┌─────────────────────────────────────────────────────────┐
+                       │                 load_context_node                        │
+                       │     (加载健康数据、用药记录、对话历史、短期记忆)            │
+                       └─────────────────────────────────────────────────────────┘
+                                                │
+                                                ▼
+                       ┌─────────────────────────────────────────────────────────┐
+                       │                   classify_intent                        │
+                       │         (LLM 意图分类: health/med/insight/general)       │
+                       └─────────────────────────────────────────────────────────┘
+                                                │
+                    ┌───────────────────────────┼───────────────────────────┐
+                    │                           │                           │
+                    ▼                           ▼                           ▼
+        ┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
+        │  health_advisor   │     │ medication_agent  │     │  insight_analyst  │
+        │   (ReAct Loop)    │     │   (ReAct Loop)    │     │   (ReAct Loop)    │
+        │                   │     │                   │     │                   │
+        │ Thought → Action  │     │ Thought → Action  │     │ Thought → Action  │
+        │     → Observe     │     │     → Observe     │     │     → Observe     │
+        │   (max 3 iters)   │     │   (max 3 iters)   │     │   (max 3 iters)   │
+        └───────────────────┘     └───────────────────┘     └───────────────────┘
+                    │                           │                           │
+                    └───────────────────────────┼───────────────────────────┘
+                                                │
+                                                ▼
+                       ┌─────────────────────────────────────────────────────────┐
+                       │                   reflection_node                        │
+                       │     (质量评分: 完整性/安全/语气/准确性/个性化)             │
+                       │                  ≥8/10 PASS, <8 RETRY                   │
+                       └─────────────────────────────────────────────────────────┘
+                                                │
+                           ┌────────────────────┴────────────────────┐
+                           │                                         │
+                      score ≥ 8                                 score < 8
+                           │                                         │
+                           ▼                                         ▼
+                       ┌───────────┐                         ┌───────────────────┐
+                       │synthesize │                         │ retry 对应 Agent   │
+                       │  (END)    │                         │    (max 2 次)     │
+                       └───────────┘                         └───────────────────┘
+                                                                     │
+                                                                     └──→ 返回对应子 Agent (health_advisor/medication_agent/insight_analyst)
 ```
+
+### ReAct 模式（Reason + Act）
+
+每个子 Agent 都采用 ReAct 模式进行推理：
+
+```
+Thought: 分析用户问题，决定需要什么信息
+Action: query_health_data
+Action Input: {"data_type": "blood_pressure", "days": 7}
+Observation: 收到工具返回的数据
+Thought: 数据显示血压偏高，需要查阅相关建议
+Action: None  (直接生成回答)
+Final Answer: 您最近7天的血压数据显示略有波动...
+```
+
+**ReAct 优势**：
+- ✅ 工具调用更精准（先思考再行动）
+- ✅ 推理过程可追溯（便于调试）
+- ✅ 减少幻觉（基于真实数据回答）
+
+### Reflection 质量守护
+
+Reflection 节点在子 Agent 输出后进行质量评估，评分维度：
+
+| 维度 | 说明 | 分值 |
+|------|------|------|
+| **完整性** | 是否完整回答了用户问题 | 0-2 |
+| **安全边界** | 是否避免了诊断/改药建议 | 0-2 |
+| **语气** | 是否温和、不引起恐慌 | 0-2 |
+| **准确性** | 是否基于数据、无杜撰 | 0-2 |
+| **个性化** | 是否使用了用户实际数据 | 0-2 |
+
+- **总分 ≥ 8/10**：通过，进入合成输出
+- **总分 < 8**：重试（最多 2 次），附带改进指导
+
+### 子 Agent 工具清单
+
+| Agent | 工具 | 说明 |
+|-------|------|------|
+| **Health Advisor** | `query_health_data` | 查询健康数据（血压/血糖/体重等） |
+|  | `calculate_bmi` | 计算 BMI 指数 |
+|  | `get_weather` | 获取天气信息 |
+|  | `calculate_water_intake` | 计算建议饮水量 |
+| **Medication Agent** | `search_medication_info` | 查询药品信息 |
+|  | `check_drug_interaction` | 检查药物相互作用 |
+|  | `query_medication_records` | 查询用药记录 |
+| **Insight Analyst** | `analyze_health_trend` | 分析健康趋势 |
+|  | `generate_weekly_summary` | 生成周报摘要 |
+|  | `compare_periods` | 对比两个时间段数据 |
 
 ### 子 Agent 职责
 
@@ -143,6 +236,144 @@ START → load_context → classify_intent ─┬─ health  → health_advisor 
 | Health Advisor | 日报建议、自适应追问、健康 Q&A | health, tcm |
 | Medication Agent | 用药 NLP 解析、药品查询、用药信息整理 | medication |
 | Insight Analyst | 周/月趋势分析、异常识别、数据洞察 | health, tcm |
+
+## 认知记忆系统（规划中）
+
+> 参考人类认知心理学设计，借鉴 HelloAgents 四种记忆类型架构
+
+### 记忆类型映射
+
+| 记忆类型 | 人类对应 | HEI 应用场景 | 存储后端 | 特点 |
+|----------|---------|-------------|----------|------|
+| **Working** | 工作记忆 | 当前对话上下文 | Redis | TTL 60min, 容量 50 条 |
+| **Episodic** | 情景记忆 | 健康事件时间轴（量血压、吃药、运动、就医） | PostgreSQL | 时间戳 + 事件标签 |
+| **Semantic** | 语义记忆 | 用户健康画像（慢性病、过敏、用药禁忌） | PostgreSQL + pgvector | 概念 + 领域分类 |
+| **Perceptual** | 感知记忆 | 处理过的体检报告、健康文档 | PostgreSQL | 文件哈希去重 |
+
+### 架构图
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                   HEI-agent Cognitive Memory System                │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────┐│
+│  │   Working    │  │   Episodic   │  │   Semantic   │  │Perceptual│
+│  │   Memory     │  │   Memory     │  │   Memory     │  │ Memory  ││
+│  ├──────────────┤  ├──────────────┤  ├──────────────┤  ├─────────┤│
+│  │ 当前对话     │  │ 健康事件时间轴 │  │ 用户健康画像 │  │体检报告 ││
+│  │ TTL: 60min  │  │ 量血压/吃药   │  │ 慢性病/过敏  │  │处理记录 ││
+│  │ 容量: 50条  │  │ 运动/就医     │  │ 用药禁忌     │  │哈希去重 ││
+│  │             │  │ 带时间戳      │  │ 向量检索     │  │         ││
+│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────┘│
+│         │                 │                 │               │     │
+│         └────────────┬────┴─────────────────┴───────────────┘     │
+│                      ▼                                            │
+│              ┌──────────────────┐                                 │
+│              │ CognitiveMemory  │  ← 统一接口                     │
+│              │ Manager          │                                 │
+│              │ add/search/      │                                 │
+│              │ consolidate/     │                                 │
+│              │ forget           │                                 │
+│              └──────────────────┘                                 │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### LangGraph 集成流程
+
+```
+START → load_context → classify_intent → sub-agent(ReAct) → reflection → synthesize
+                                                                            │
+                                                                            ▼
+                                                              ┌─────────────────────────┐
+                                                              │ memory_consolidation    │
+                                                              │ (新增节点)               │
+                                                              ├─────────────────────────┤
+                                                              │ 1. 存入 working memory  │
+                                                              │ 2. 提取健康事件→episodic │
+                                                              │ 3. 更新健康画像→semantic │
+                                                              │ 4. 重要性≥0.7 自动整合  │
+                                                              └─────────────────────────┘
+                                                                            │
+                                                                            ▼
+                                                                          END
+```
+
+### 核心操作
+
+| 操作 | 说明 | 触发时机 |
+|------|------|---------|
+| `add` | 存入记忆 | 每轮对话后 |
+| `search` | 检索相关记忆 | load_context 阶段 |
+| `consolidate` | 将 working 中重要内容升级到 episodic/semantic | synthesize 之后 |
+| `forget` | 清除低重要性记忆 | 定时任务 / 容量满时 |
+
+### 数据结构
+
+```python
+# 记忆条目结构
+MemoryRecord = {
+    "id": str,              # UUID 前 8 位
+    "user_id": UUID,        # 用户 ID
+    "memory_type": str,     # working / episodic / semantic / perceptual
+    "content": str,         # 记忆内容
+    "importance": float,    # 重要性评分 0.0 ~ 1.0
+    "created_at": float,    # Unix 时间戳
+    "metadata": {           # 扩展字段
+        # episodic 专用
+        "event_type": str,       # blood_pressure / medication / exercise / visit
+        "location": str,         # 地点
+
+        # semantic 专用
+        "concept": str,          # 概念标签（如 "hypertension", "allergy"）
+        "domain": str,           # 领域（chronic_disease / preference / contraindication）
+
+        # perceptual 专用
+        "file_hash": str,        # 文件哈希（去重用）
+        "modality": str,         # document / image
+    }
+}
+```
+
+### 健康场景示例
+
+```python
+# 1. 用户量血压后对话
+memory.add({
+    "content": "用户今早测量血压 145/92 mmHg，略高于正常范围",
+    "memory_type": "episodic",
+    "importance": 0.8,
+    "event_type": "blood_pressure",
+    "timestamp": "2026-03-05T08:30:00"
+})
+
+# 2. 识别到用户有高血压，更新健康画像
+memory.add({
+    "content": "用户有高血压病史，需关注血压波动",
+    "memory_type": "semantic",
+    "importance": 0.95,
+    "concept": "hypertension",
+    "domain": "chronic_disease"
+})
+
+# 3. 下次对话时检索相关记忆
+relevant = memory.search({
+    "query": "血压",
+    "memory_type": "episodic",
+    "limit": 5
+})
+# → 返回最近的血压测量记录，供 Agent 参考
+```
+
+### 实现计划
+
+| 阶段 | 任务 | 文件 |
+|------|------|------|
+| Phase 1 | 创建 `CognitiveMemoryTool` 类，统一四种记忆操作 | `app/memory/cognitive_memory.py` |
+| Phase 2 | 更新 `AgentState`，添加记忆相关字段 | `app/agents/state.py` |
+| Phase 3 | 添加 `memory_consolidation_node` 到 LangGraph | `app/agents/orchestrator.py` |
+| Phase 4 | 在 `load_context_node` 中集成记忆检索 | `app/agents/orchestrator.py` |
+| Phase 5 | 数据库迁移，添加记忆表 | `alembic/versions/` |
 
 ## LLM Router
 
@@ -206,10 +437,12 @@ hel-agent/
 │   │   └── sync.py           # 数据同步
 │   ├── agents/               # LangGraph 多 Agent
 │   │   ├── orchestrator.py   # 编排器（Supervisor）
-│   │   ├── health_advisor.py # 健康顾问
-│   │   ├── medication_agent.py # 用药管家
-│   │   ├── insight_analyst.py  # 洞察分析
-│   │   └── state.py          # 共享状态定义
+│   │   ├── health_advisor.py # 健康顾问 (ReAct)
+│   │   ├── medication_agent.py # 用药管家 (ReAct)
+│   │   ├── insight_analyst.py  # 洞察分析 (ReAct)
+│   │   ├── reflection.py     # Reflection 质量守护节点
+│   │   ├── tools.py          # 工具定义 (LangChain @tool)
+│   │   └── state.py          # 共享状态定义 (TypedDict)
 │   ├── llm/router.py         # LLM Router (LiteLLM)
 │   ├── rag/                  # RAG 引擎 (Qdrant)
 │   ├── memory/               # 记忆系统 (Redis + PostgreSQL)
