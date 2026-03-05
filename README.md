@@ -245,10 +245,15 @@ Reflection 节点在子 Agent 输出后进行质量评估，评分维度：
 
 | 记忆类型 | 人类对应 | HEI 应用场景 | 存储后端 | 特点 |
 |----------|---------|-------------|----------|------|
-| **Working** | 工作记忆 | 当前对话上下文 | Redis | TTL 60min, 容量 50 条 |
-| **Episodic** | 情景记忆 | 健康事件时间轴（量血压、吃药、运动、就医） | PostgreSQL | 时间戳 + 事件标签 |
-| **Semantic** | 语义记忆 | 用户健康画像（慢性病、过敏、用药禁忌） | PostgreSQL + pgvector | 概念 + 领域分类 |
-| **Perceptual** | 感知记忆 | 处理过的体检报告、健康文档 | PostgreSQL | 文件哈希去重 |
+| **Working** | 工作记忆 | 当前对话上下文 | **Redis** | TTL 60min, 容量 50 条 |
+| **Episodic** | 情景记忆 | 健康事件时间轴（量血压、吃药、运动、就医） | **PostgreSQL** | 时间戳 + 事件标签，支持时间范围查询 |
+| **Semantic** | 语义记忆 | 用户健康画像（慢性病、过敏、用药禁忌） | **Qdrant** | 向量检索，复用 RAG 引擎 |
+| **Perceptual** | 感知记忆 | 处理过的体检报告、健康文档 | **PostgreSQL** | 文件哈希去重 |
+
+> **为什么 Semantic Memory 用 Qdrant？**
+> - 健康画像需要语义检索（如查询"过敏"应匹配"青霉素过敏"、"花粉过敏"）
+> - Qdrant 已部署，可复用 RAG 引擎的 embedding 能力
+> - 新建 `user_semantic` collection，按 user_id 过滤
 
 ### 架构图
 
@@ -264,7 +269,8 @@ Reflection 节点在子 Agent 输出后进行质量评估，评分维度：
 │  │ 当前对话     │  │ 健康事件时间轴 │  │ 用户健康画像 │  │体检报告 ││
 │  │ TTL: 60min  │  │ 量血压/吃药   │  │ 慢性病/过敏  │  │处理记录 ││
 │  │ 容量: 50条  │  │ 运动/就医     │  │ 用药禁忌     │  │哈希去重 ││
-│  │             │  │ 带时间戳      │  │ 向量检索     │  │         ││
+│  │             │  │ 带时间戳      │  │ **向量检索** │  │         ││
+│  │   [Redis]   │  │ [PostgreSQL] │  │  [Qdrant]   │  │[Postgres]││
 │  └──────────────┘  └──────────────┘  └──────────────┘  └─────────┘│
 │         │                 │                 │               │     │
 │         └────────────┬────┴─────────────────┴───────────────┘     │
@@ -277,6 +283,44 @@ Reflection 节点在子 Agent 输出后进行质量评估，评分维度：
 │              │ forget           │                                 │
 │              └──────────────────┘                                 │
 └────────────────────────────────────────────────────────────────────┘
+```
+
+### 存储后端选型理由
+
+| 后端 | 用于 | 理由 |
+|------|------|------|
+| **Redis** | Working Memory | 需要 TTL 自动过期、快速读写、无需持久化 |
+| **PostgreSQL** | Episodic + Perceptual | 结构化查询（按时间/事件类型/文件哈希），事务支持 |
+| **Qdrant** | Semantic Memory | 语义检索（相似概念匹配），复用现有 RAG 基础设施 |
+
+### Qdrant Collection 设计
+
+```python
+# 新增 collection: user_semantic
+# 存储用户健康画像、偏好、禁忌等语义记忆
+
+{
+    "collection_name": "user_semantic",
+    "vectors_config": {
+        "size": 1536,  # 与 RAG 使用相同的 embedding 模型
+        "distance": "Cosine"
+    },
+    "payload_schema": {
+        "user_id": "keyword",      # 必填，用于过滤
+        "concept": "keyword",       # 概念标签（hypertension, allergy...）
+        "domain": "keyword",        # 领域（chronic_disease, preference, contraindication）
+        "importance": "float",      # 重要性评分
+        "created_at": "datetime",   # 创建时间
+    }
+}
+
+# 检索示例：查找用户的过敏相关记忆
+qdrant.search(
+    collection_name="user_semantic",
+    query_vector=embed("过敏信息"),
+    query_filter={"must": [{"key": "user_id", "match": {"value": user_id}}]},
+    limit=5
+)
 ```
 
 ### LangGraph 集成流程
@@ -371,9 +415,10 @@ relevant = memory.search({
 |------|------|------|
 | Phase 1 | 创建 `CognitiveMemoryTool` 类，统一四种记忆操作 | `app/memory/cognitive_memory.py` |
 | Phase 2 | 更新 `AgentState`，添加记忆相关字段 | `app/agents/state.py` |
-| Phase 3 | 添加 `memory_consolidation_node` 到 LangGraph | `app/agents/orchestrator.py` |
-| Phase 4 | 在 `load_context_node` 中集成记忆检索 | `app/agents/orchestrator.py` |
-| Phase 5 | 数据库迁移，添加记忆表 | `alembic/versions/` |
+| Phase 3 | 在 Qdrant 创建 `user_semantic` collection | `app/rag/engine.py` |
+| Phase 4 | 添加 `memory_consolidation_node` 到 LangGraph | `app/agents/orchestrator.py` |
+| Phase 5 | 在 `load_context_node` 中集成记忆检索 | `app/agents/orchestrator.py` |
+| Phase 6 | 数据库迁移，添加 episodic/perceptual 记忆表 | `alembic/versions/` |
 
 ## LLM Router
 
@@ -385,6 +430,115 @@ relevant = memory.search({
 
 配置 `.env` 中的 API key 即可启用对应 Provider。未配置 key 的 Provider 自动跳过。
 连续失败 3 次的 Provider 自动冷却 5 分钟后重试。
+
+## RAG 检索增强生成系统
+
+RAG（Retrieval-Augmented Generation）让 Agent 能够基于专业知识库回答问题，而非仅靠 LLM 内置知识。
+
+### 架构流程
+
+```
+用户问题
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                         RAG Engine                                    │
+├──────────────────────────────────────────────────────────────────────┤
+│  ① Embedding                                                         │
+│     用户问题 ─→ LLM Router ─→ 向量 (2048维)                           │
+├──────────────────────────────────────────────────────────────────────┤
+│  ② Multi-Collection Search                                           │
+│     ┌─────────────────┬─────────────────┬─────────────────┐          │
+│     │ health_knowledge│ medication_info │   tcm_wellness  │          │
+│     │   (健康知识)    │   (药品信息)    │   (中医养生)    │          │
+│     └────────┬────────┴────────┬────────┴────────┬────────┘          │
+│              │                 │                 │                   │
+│              └─────────────────┼─────────────────┘                   │
+│                                ▼                                     │
+│                    Cosine Similarity 排序                            │
+│                                │                                     │
+│                                ▼                                     │
+│                    Top-K 结果 (默认 5 条)                            │
+├──────────────────────────────────────────────────────────────────────┤
+│  ③ Context Assembly                                                  │
+│     【参考1】[来源: 高血压防治指南.pdf]                                │
+│     收缩压 ≥140 mmHg 和/或舒张压 ≥90 mmHg 即可诊断为高血压...        │
+│                                                                      │
+│     【参考2】[来源: 常用药物手册.md]                                  │
+│     降压药物分类：ACEI、ARB、CCB、利尿剂...                           │
+└──────────────────────────────────────────────────────────────────────┘
+   │
+   ▼
+组装进 Agent Prompt → LLM 生成回答（引用参考资料）
+```
+
+### Qdrant Collections
+
+| Collection | 存储内容 | 适用场景 |
+|------------|---------|---------|
+| `health_knowledge` | 健康知识、疾病预防、生活方式 | Health Advisor / Insight Analyst |
+| `medication_info` | 药品说明书、用药指导、相互作用 | Medication Agent |
+| `tcm_wellness` | 中医养生、食疗方、节气调养 | Health Advisor |
+
+### 核心代码
+
+```python
+# app/rag/engine.py
+
+class RAGEngine:
+    async def retrieve(
+        self,
+        query: str,
+        collections: list[str] | None = None,  # ["health", "medication", "tcm"]
+        top_k: int = 5,
+        filters: dict | None = None,           # 元数据过滤
+    ) -> list[dict]:
+        """跨 collection 检索，返回 {content, source, score, collection}"""
+
+    async def retrieve_as_context(
+        self,
+        query: str,
+        collections: list[str] | None = None,
+        top_k: int = 5,
+    ) -> str:
+        """检索并格式化为 LLM Prompt 的上下文字符串"""
+```
+
+### 文档导入管道
+
+```
+原始文档 (txt/md/pdf)
+        │
+        ▼
+    ┌─────────┐
+    │ 文本提取 │  ← pypdf / 直接读取
+    └────┬────┘
+         │
+         ▼
+    ┌─────────────────────────┐
+    │ RecursiveCharacterText  │  ← chunk_size=500, overlap=50
+    │ Splitter (分块)          │
+    └────────────┬────────────┘
+                 │
+                 ▼
+    ┌─────────────────────────┐
+    │ LLM Router Embedding    │  ← 2048 维向量
+    └────────────┬────────────┘
+                 │
+                 ▼
+    ┌─────────────────────────┐
+    │    Qdrant Collection    │  ← 带 source/category/subcategory 元数据
+    └─────────────────────────┘
+```
+
+### 配置参数
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `RAG_TOP_K` | 5 | 最终返回的检索结果数 |
+| `RAG_RERANK_TOP_K` | 20 | 初筛数量（用于后续 rerank） |
+| `RAG_CHUNK_SIZE` | 500 | 每个分块的字符数 |
+| `RAG_CHUNK_OVERLAP` | 50 | 分块重叠字符数 |
 
 ## 知识库管理
 
