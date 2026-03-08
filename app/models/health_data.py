@@ -163,3 +163,22 @@ class AdviceTracking(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+
+class SyncTombstoneRecord(Base):
+    """Server-side tombstones for cross-device delete propagation."""
+
+    __tablename__ = "sync_tombstones"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    entity: Mapped[str] = mapped_column(String(50), index=True)
+    record_id: Mapped[int] = mapped_column(Integer)
+    payload_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )

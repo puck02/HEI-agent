@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 class MedNlpParseRequest(BaseModel):
     """Natural language medication event → structured actions."""
     raw_text: str = Field(..., min_length=1, max_length=2000)
-    current_meds: list[str] = []  # names of active medications
+    current_meds: list[str] = Field(default_factory=list)  # names of active medications
     active_courses_summary: list[dict] | None = None
 
 
@@ -24,9 +24,9 @@ class MedAction(BaseModel):
 
 
 class MedNlpParseResponse(BaseModel):
-    mentioned_meds: list[dict] = []  # [{name, in_library: bool}]
-    actions: list[MedAction] = []
-    questions: list[dict] = []  # clarifying questions (max 2)
+    mentioned_meds: list[dict] = Field(default_factory=list)  # [{name, in_library: bool}]
+    actions: list[MedAction] = Field(default_factory=list)
+    questions: list[dict] = Field(default_factory=list)  # clarifying questions (max 2)
     model: str | None = None
 
 
@@ -39,7 +39,7 @@ class MedInfoSummaryRequest(BaseModel):
 
 
 class MedInfoSummaryResponse(BaseModel):
-    name_candidates: list[str] = []
+    name_candidates: list[str] = Field(default_factory=list)
     dosage_summary: str | None = None
     cautions_summary: str | None = None
     adverse_summary: str | None = None

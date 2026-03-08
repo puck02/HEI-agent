@@ -81,6 +81,63 @@ class SyncStatusResponse(BaseModel):
     last_sync_timestamp: int = 0
     total_entries: int = 0
     total_medications: int = 0
+    server_cursor: int = 0
+    capabilities: list[str] = Field(default_factory=list)
+    last_push_ack: str | None = None
+
+
+class SyncChange(BaseModel):
+    entity: str
+    op: str  # upsert | delete
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class SyncPushRequest(BaseModel):
+    client_change_id: str
+    base_server_version: int = 0
+    changes: list[SyncChange] = Field(default_factory=list)
+
+
+class SyncPushResult(BaseModel):
+    entity: str
+    op: str
+    status: str  # applied | conflict | ignored | failed
+    android_id: int | None = None
+    server_id: int | None = None
+    server_version: int | None = None
+    conflict_reason: str | None = None
+
+
+class SyncPushResponse(BaseModel):
+    message: str
+    accepted: int = 0
+    applied: int = 0
+    conflicts: int = 0
+    server_timestamp: int = 0
+    server_cursor: int = 0
+    results: list[SyncPushResult] = Field(default_factory=list)
+
+
+class SyncEntityEnvelope(BaseModel):
+    entity: str
+    record_id: int
+    server_version: int
+    updated_at: int
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class SyncTombstone(BaseModel):
+    entity: str
+    record_id: int
+    deleted_at: int
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class SyncPullResponse(BaseModel):
+    changes: list[SyncEntityEnvelope] = Field(default_factory=list)
+    tombstones: list[SyncTombstone] = Field(default_factory=list)
+    next_cursor: int = 0
+    server_time: int = 0
 
 
 # ── Daily Advice (Android-compatible) ────────────────────
