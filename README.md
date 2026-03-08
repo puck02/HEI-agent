@@ -115,28 +115,33 @@ python scripts/init_db.py --seed
 # 导入知识库
 python scripts/ingest_knowledge.py
 
-# 启动服务
-uvicorn app.main:app --reload --port 8000
+# 启动服务（推荐：单进程，避免 --reload 子进程残留）
+scripts/dev_server.sh start
+
+# 查看状态 / 日志 / 停止
+scripts/dev_server.sh status
+scripts/dev_server.sh logs
+scripts/dev_server.sh stop
 ```
 
 ### 4. 验证
 
 ```bash
 # 健康检查
-curl http://localhost:8000/health
+curl http://localhost:8011/health
 
 # 注册用户
-curl -X POST http://localhost:8000/auth/register \
+curl -X POST http://localhost:8011/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"demo","email":"demo@test.com","password":"Demo123456"}'
 
 # 登录获取 token
-curl -X POST http://localhost:8000/auth/login \
+curl -X POST http://localhost:8011/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"demo","password":"Demo123456"}'
 
 # 使用 token 对话
-curl -X POST http://localhost:8000/api/v1/chat \
+curl -X POST http://localhost:8011/api/v1/chat \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"message":"我最近睡眠不太好，有什么建议吗？"}'
