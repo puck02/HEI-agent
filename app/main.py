@@ -10,7 +10,10 @@ import structlog
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import DBAPIError
 
 from app.config import get_settings
 
@@ -24,6 +27,14 @@ async def lifespan(app: FastAPI):
 
     # ── Startup ──────────────────────────────────────────
     log.info("starting", app=settings.app_name, env=settings.app_env)
+
+    # Verify DB connectivity early to fail fast on bad runtime config
+    try:
+        from app.database import check_db_connection
+        await check_db_connection()
+        log.info("database_connected")
+    except Exception as e:
+        log.warning("database_connect_failed", error=str(e))
 
     # Init database tables (dev mode only — use Alembic in production)
     if settings.debug:
@@ -86,6 +97,38 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(DBAPIError)
+    async def db_exception_handler(request: Request, exc: DBAPIError):
+        log.error(
+            "db_request_failed",
+            path=request.url.path,
+            method=request.method,
+            error=str(exc),
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "数据库暂时不可用，请稍后重试",
+                "error": "database_unavailable",
+            },
+        )
+
+    @app.exception_handler(ConnectionError)
+    async def connection_exception_handler(request: Request, exc: ConnectionError):
+        log.error(
+            "connection_request_failed",
+            path=request.url.path,
+            method=request.method,
+            error=str(exc),
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "服务连接暂时不可用，请稍后重试",
+                "error": "connection_unavailable",
+            },
+        )
 
     # ── Routes ───────────────────────────────────────────
     from app.auth.router import router as auth_router

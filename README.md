@@ -92,11 +92,13 @@ cp .env.example .env
 ### 2. Docker 启动
 
 ```bash
-docker-compose up -d
+docker compose up -d
+# 如需仅重建应用容器：
+docker compose up -d --force-recreate --no-deps agent
 ```
 
 这会启动 4 个服务：
-- `hel-agent` — FastAPI 应用 (端口 8000)
+- `hel-agent` — FastAPI 应用 (端口 8011)
 - `hel-postgres` — PostgreSQL 16 + pgvector (端口 5432)
 - `hel-redis` — Redis 7 (端口 6379)
 - `hel-qdrant` — Qdrant 向量数据库 (端口 6333)
@@ -149,7 +151,7 @@ curl -X POST http://localhost:8011/api/v1/chat \
 
 ## API 文档
 
-启动后访问 http://localhost:8000/docs 查看自动生成的 Swagger UI。
+启动后访问 http://localhost:8011/docs 查看自动生成的 Swagger UI。
 
 ### 核心端点
 

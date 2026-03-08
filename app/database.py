@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy import text
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import get_settings
@@ -21,6 +22,8 @@ engine = create_async_engine(
     pool_size=10,
     max_overflow=20,
     pool_pre_ping=True,
+    pool_recycle=1800,
+    connect_args={"ssl": False},
 )
 
 async_session_factory = async_sessionmaker(
@@ -52,3 +55,9 @@ async def init_db() -> None:
     """Create all tables (dev convenience — use Alembic in production)."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+async def check_db_connection() -> None:
+    """Quick connectivity probe used by startup and diagnostics."""
+    async with engine.connect() as conn:
+        await conn.execute(text("SELECT 1"))

@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # ── PostgreSQL ───────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://helagent:helagent_password@localhost:5432/helagent"
-    database_url_sync: str = "postgresql://helagent:helagent_password@localhost:5432/helagent"
+    database_url: str = "postgresql+asyncpg://helagent:helagent_password@localhost:5432/helagent?ssl=disable"
+    database_url_sync: str = "postgresql://helagent:helagent_password@localhost:5432/helagent?sslmode=disable"
 
     # ── Redis ────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379/0"

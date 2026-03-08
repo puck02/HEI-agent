@@ -8,6 +8,7 @@ import uuid
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import (
@@ -71,7 +72,16 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if await get_user_by_email(db, req.email):
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    user = await create_user(db, req.username, req.email, req.password, req.display_name)
+    try:
+        user = await create_user(db, req.username, req.email, req.password, req.display_name)
+    except IntegrityError as exc:
+        detail = str(getattr(exc, "orig", exc)).lower()
+        if "username" in detail:
+            raise HTTPException(status_code=409, detail="Username already exists")
+        if "email" in detail:
+            raise HTTPException(status_code=409, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="User already exists")
+
     access_token, expires_in = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)
     return TokenResponse(
