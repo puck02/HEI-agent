@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import structlog
 from contextlib import asynccontextmanager
+import asyncpg
 
 from fastapi import FastAPI
 from fastapi import Request
@@ -127,6 +128,22 @@ def create_app() -> FastAPI:
             content={
                 "detail": "服务连接暂时不可用，请稍后重试",
                 "error": "connection_unavailable",
+            },
+        )
+
+    @app.exception_handler(asyncpg.PostgresConnectionError)
+    async def asyncpg_connection_exception_handler(request: Request, exc: asyncpg.PostgresConnectionError):
+        log.error(
+            "asyncpg_connection_failed",
+            path=request.url.path,
+            method=request.method,
+            error=str(exc),
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "数据库连接暂时不可用，请稍后重试",
+                "error": "database_connection_unavailable",
             },
         )
 

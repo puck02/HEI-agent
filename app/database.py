@@ -4,6 +4,8 @@ Async SQLAlchemy engine and session factory for PostgreSQL.
 
 from __future__ import annotations
 
+from typing import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -11,20 +13,29 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy import text
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
 settings = get_settings()
 
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    pool_recycle=1800,
-    connect_args={"ssl": False},
-)
+if settings.debug:
+    engine = create_async_engine(
+        settings.database_url,
+        echo=settings.debug,
+        poolclass=NullPool,
+        connect_args={"ssl": False},
+    )
+else:
+    engine = create_async_engine(
+        settings.database_url,
+        echo=settings.debug,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        connect_args={"ssl": False},
+    )
 
 async_session_factory = async_sessionmaker(
     engine,
@@ -38,7 +49,7 @@ class Base(DeclarativeBase):
     pass
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency — yields an async database session."""
     async with async_session_factory() as session:
         try:
