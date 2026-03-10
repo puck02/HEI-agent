@@ -168,13 +168,13 @@ async def execute_insight_tool(action_name: str, input_str: str, user_id: str) -
         inputs["user_id"] = user_id
 
         if action_name == "query_health_data":
-            return query_health_data.invoke(inputs)
+            return await query_health_data.ainvoke(inputs)
         elif action_name == "analyze_health_trend":
-            return analyze_health_trend.invoke(inputs)
+            return await analyze_health_trend.ainvoke(inputs)
         elif action_name == "generate_weekly_summary":
-            return generate_weekly_summary.invoke(inputs)
+            return await generate_weekly_summary.ainvoke(inputs)
         elif action_name == "compare_periods":
-            return compare_periods.invoke(inputs)
+            return await compare_periods.ainvoke(inputs)
         else:
             return f"未知工具: {action_name}"
     except Exception as e:

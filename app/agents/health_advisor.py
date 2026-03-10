@@ -198,13 +198,13 @@ async def execute_tool(action_name: str, input_str: str, user_id: str) -> str:
 
         # Execute tool
         if action_name == "query_health_data":
-            return query_health_data.invoke(inputs)
+            return await query_health_data.ainvoke(inputs)
         elif action_name == "calculate_bmi":
-            return calculate_bmi.invoke(inputs)
+            return await calculate_bmi.ainvoke(inputs)
         elif action_name == "get_weather":
-            return get_weather.invoke(inputs)
+            return await get_weather.ainvoke(inputs)
         elif action_name == "calculate_water_intake":
-            return calculate_water_intake.invoke(inputs)
+            return await calculate_water_intake.ainvoke(inputs)
         else:
             return f"未知工具: {action_name}"
 

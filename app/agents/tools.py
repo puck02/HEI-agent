@@ -2,16 +2,24 @@
 Agent Tools — Tool definitions for ReAct agents.
 
 Each sub-agent has access to specific tools based on its domain.
-Tools are implemented as LangChain @tool decorated functions.
+Tools are implemented as LangChain @tool decorated async functions
+that query the real PostgreSQL database.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
+from uuid import UUID
 
 import structlog
 from langchain_core.tools import tool
+from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
+
+from app.database import async_session_factory
+from app.models.health_data import HealthEntry, QuestionResponse, DailySummary
+from app.models.medication import Medication, MedicationCourse, MedicationEvent
 
 log = structlog.get_logger(__name__)
 
@@ -22,7 +30,7 @@ log = structlog.get_logger(__name__)
 
 
 @tool
-def query_health_data(
+async def query_health_data(
     user_id: str,
     data_type: str,
     days: int = 7,
@@ -38,20 +46,47 @@ def query_health_data(
     Returns:
         用户健康数据摘要
     """
-    # TODO: 实际实现需要从数据库查询
     log.info("tool_query_health_data", user_id=user_id, data_type=data_type, days=days)
 
-    # Mock data for demonstration
-    mock_data = {
-        "blood_pressure": f"最近{days}天血压数据: 平均 128/82 mmHg，略高于正常范围",
-        "blood_sugar": f"最近{days}天血糖数据: 空腹平均 5.8 mmol/L，在正常范围内",
-        "sleep": f"最近{days}天睡眠数据: 平均睡眠 6.5 小时，深睡比例 18%，略低",
-        "weight": f"最近{days}天体重数据: 平均 72.5 kg，较上周增加 0.3 kg",
-        "heart_rate": f"最近{days}天心率数据: 静息心率平均 72 bpm，正常",
-        "mood": f"最近{days}天情绪记录: 整体偏正向，有2天记录疲劳",
-    }
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        return f"无效的用户ID: {user_id}"
 
-    return mock_data.get(data_type, f"暂无 {data_type} 类型的数据")
+    since = date.today() - timedelta(days=days)
+
+    async with async_session_factory() as session:
+        stmt = (
+            select(HealthEntry)
+            .options(selectinload(HealthEntry.question_responses))
+            .where(
+                and_(
+                    HealthEntry.user_id == uid,
+                    HealthEntry.entry_date >= since,
+                )
+            )
+            .order_by(HealthEntry.entry_date.desc())
+        )
+        rows = (await session.execute(stmt)).scalars().all()
+
+    if not rows:
+        return f"最近{days}天暂无健康打卡数据"
+
+    # Collect answers matching data_type from question_responses
+    records: list[str] = []
+    for entry in rows:
+        for qr in entry.question_responses:
+            if data_type in (qr.question_id or ""):
+                label = qr.answer_label or qr.answer_value or ""
+                records.append(f"{entry.entry_date}: {label}")
+
+    if not records:
+        # data_type not found in question_responses; return general summary
+        dates = [e.entry_date.isoformat() for e in rows]
+        return f"最近{days}天有 {len(rows)} 天健康打卡记录（{', '.join(dates[:5])}），但未找到 {data_type} 类型的数据"
+
+    header = f"最近{days}天 {data_type} 数据（共 {len(records)} 条）:\n"
+    return header + "\n".join(records[:15])
 
 
 @tool
@@ -129,7 +164,7 @@ def calculate_water_intake(weight_kg: float, exercise_minutes: int = 0) -> str:
 
 
 @tool
-def search_medication_info(drug_name: str) -> str:
+async def search_medication_info(drug_name: str) -> str:
     """查询药品信息，包括用法、禁忌、副作用等。
 
     Args:
@@ -138,32 +173,25 @@ def search_medication_info(drug_name: str) -> str:
     Returns:
         药品详细信息
     """
-    # TODO: 实际实现需要从药品知识库查询
     log.info("tool_search_medication", drug_name=drug_name)
 
-    # Mock medication data
-    mock_meds = {
-        "阿司匹林": """【阿司匹林】
-- 通用名: 乙酰水杨酸
-- 常见剂量: 100mg/片
-- 用法: 每日1次，餐后服用
-- 注意事项: 胃溃疡患者慎用，不宜空腹服用
-- 常见副作用: 胃肠道不适
-- 禁忌: 活动性消化道出血、对阿司匹林过敏""",
-        "二甲双胍": """【二甲双胍】
-- 通用名: 盐酸二甲双胍
-- 常见剂量: 500mg/片
-- 用法: 每日2-3次，随餐服用
-- 注意事项: 需监测肾功能，避免酗酒
-- 常见副作用: 胃肠道反应（初期）
-- 禁忌: 严重肾功能不全、酮症酸中毒""",
-    }
+    # Try RAG knowledge base first
+    try:
+        from app.rag.engine import get_rag_engine
+        rag = get_rag_engine()
+        results = await rag.retrieve(drug_name, collections=["medication"], top_k=3)
+        if results:
+            chunks = [r.get("content", "") for r in results if r.get("content")]
+            if chunks:
+                return f"【{drug_name} 相关信息】\n" + "\n---\n".join(chunks[:3])
+    except Exception as e:
+        log.warning("rag_medication_search_failed", error=str(e))
 
-    return mock_meds.get(drug_name, f"未找到 {drug_name} 的详细信息，建议咨询药师或医生。")
+    return f"知识库中未找到 {drug_name} 的详细信息，建议咨询药师或医生。"
 
 
 @tool
-def check_drug_interaction(drug1: str, drug2: str) -> str:
+async def check_drug_interaction(drug1: str, drug2: str) -> str:
     """检查两种药物之间的相互作用。
 
     Args:
@@ -173,14 +201,26 @@ def check_drug_interaction(drug1: str, drug2: str) -> str:
     Returns:
         相互作用信息
     """
-    # TODO: 实际实现需要药物相互作用数据库
     log.info("tool_drug_interaction", drug1=drug1, drug2=drug2)
 
-    return f"【药物相互作用查询】{drug1} 与 {drug2}：暂无明确的严重相互作用记录。建议服药间隔至少2小时，并咨询医生确认。"
+    # Search RAG for interaction info
+    try:
+        from app.rag.engine import get_rag_engine
+        rag = get_rag_engine()
+        query = f"{drug1} {drug2} 药物相互作用"
+        results = await rag.retrieve(query, collections=["medication"], top_k=3)
+        if results:
+            chunks = [r.get("content", "") for r in results if r.get("content")]
+            if chunks:
+                return f"【{drug1} 与 {drug2} 相互作用查询】\n" + "\n---\n".join(chunks[:3])
+    except Exception as e:
+        log.warning("rag_interaction_search_failed", error=str(e))
+
+    return f"【药物相互作用查询】{drug1} 与 {drug2}：知识库中暂无明确记录。建议服药间隔至少2小时，并咨询医生确认。"
 
 
 @tool
-def query_medication_records(user_id: str, days: int = 30) -> str:
+async def query_medication_records(user_id: str, days: int = 30) -> str:
     """查询用户用药记录。
 
     Args:
@@ -192,11 +232,63 @@ def query_medication_records(user_id: str, days: int = 30) -> str:
     """
     log.info("tool_query_medication_records", user_id=user_id, days=days)
 
-    # Mock data
-    return f"""最近{days}天用药记录:
-- 阿司匹林 100mg: 每日1次，服药率 93%
-- 二甲双胍 500mg: 每日2次，服药率 87%（有3天漏服）
-- 氨氯地平 5mg: 每日1次，服药率 100%"""
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        return f"无效的用户ID: {user_id}"
+
+    async with async_session_factory() as session:
+        # Active medication courses
+        stmt = (
+            select(MedicationCourse)
+            .join(Medication, MedicationCourse.med_id == Medication.id)
+            .options(selectinload(MedicationCourse.medication))
+            .where(
+                and_(
+                    Medication.user_id == uid,
+                    MedicationCourse.status == "active",
+                )
+            )
+        )
+        courses = (await session.execute(stmt)).scalars().all()
+
+        # Recent medication events
+        since_dt = datetime.now(timezone.utc) - timedelta(days=days)
+        evt_stmt = (
+            select(MedicationEvent)
+            .where(
+                and_(
+                    MedicationEvent.user_id == uid,
+                    MedicationEvent.created_at >= since_dt,
+                )
+            )
+            .order_by(MedicationEvent.created_at.desc())
+            .limit(20)
+        )
+        events = (await session.execute(evt_stmt)).scalars().all()
+
+    if not courses and not events:
+        return f"最近{days}天暂无用药记录"
+
+    parts: list[str] = []
+    if courses:
+        parts.append("【当前在用药物】")
+        for c in courses:
+            med = c.medication
+            line = f"- {med.name}"
+            if c.dose_text:
+                line += f" {c.dose_text}"
+            if c.frequency_text:
+                line += f"，{c.frequency_text}"
+            parts.append(line)
+
+    if events:
+        parts.append(f"\n【最近{days}天用药事件（共 {len(events)} 条）】")
+        for ev in events[:10]:
+            ts = ev.created_at.strftime("%m-%d %H:%M") if ev.created_at else ""
+            parts.append(f"- {ts}: {ev.raw_text[:60]}")
+
+    return "\n".join(parts)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -205,7 +297,7 @@ def query_medication_records(user_id: str, days: int = 30) -> str:
 
 
 @tool
-def analyze_health_trend(
+async def analyze_health_trend(
     user_id: str,
     metric: str,
     period_days: int = 30,
@@ -222,20 +314,48 @@ def analyze_health_trend(
     """
     log.info("tool_analyze_trend", user_id=user_id, metric=metric, period=period_days)
 
-    # Mock analysis
-    mock_trends = {
-        "blood_pressure": f"【血压趋势分析 - 近{period_days}天】\n趋势: 轻微上升 (+3%)\n波动性: 中等\n建议: 注意减少盐分摄入，保持规律作息",
-        "blood_sugar": f"【血糖趋势分析 - 近{period_days}天】\n趋势: 稳定\n波动性: 低\n建议: 继续保持当前的饮食和用药习惯",
-        "sleep": f"【睡眠趋势分析 - 近{period_days}天】\n趋势: 改善中 (+8%)\n深睡比例: 提升\n建议: 继续保持规律作息时间",
-        "weight": f"【体重趋势分析 - 近{period_days}天】\n趋势: 略有上升 (+0.5kg)\n波动性: 低\n建议: 可适当增加运动量",
-        "mood": f"【情绪趋势分析 - 近{period_days}天】\n整体: 积极向上\n低落天数: 3天\n建议: 情绪良好，继续保持社交和运动",
-    }
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        return f"无效的用户ID: {user_id}"
 
-    return mock_trends.get(metric, f"暂无 {metric} 的趋势数据")
+    since = date.today() - timedelta(days=period_days)
+
+    async with async_session_factory() as session:
+        stmt = (
+            select(HealthEntry)
+            .options(selectinload(HealthEntry.question_responses))
+            .where(
+                and_(
+                    HealthEntry.user_id == uid,
+                    HealthEntry.entry_date >= since,
+                )
+            )
+            .order_by(HealthEntry.entry_date.asc())
+        )
+        rows = (await session.execute(stmt)).scalars().all()
+
+    if not rows:
+        return f"最近{period_days}天暂无健康数据，无法分析趋势"
+
+    records: list[tuple[date, str]] = []
+    for entry in rows:
+        for qr in entry.question_responses:
+            if metric in (qr.question_id or ""):
+                label = qr.answer_label or qr.answer_value or ""
+                records.append((entry.entry_date, label))
+
+    if not records:
+        return f"最近{period_days}天有 {len(rows)} 天打卡，但未找到 {metric} 类型数据"
+
+    lines = [f"【{metric} 趋势分析 - 近{period_days}天，共 {len(records)} 条】"]
+    for d, v in records[-10:]:
+        lines.append(f"  {d}: {v}")
+    return "\n".join(lines)
 
 
 @tool
-def generate_weekly_summary(user_id: str) -> str:
+async def generate_weekly_summary(user_id: str) -> str:
     """生成用户健康周报摘要。
 
     Args:
@@ -246,29 +366,73 @@ def generate_weekly_summary(user_id: str) -> str:
     """
     log.info("tool_weekly_summary", user_id=user_id)
 
-    return """【本周健康周报摘要】
-📊 数据概览:
-- 血压: 平均 125/80 mmHg，控制良好
-- 血糖: 空腹平均 5.6 mmol/L，达标
-- 睡眠: 平均 7.1 小时，较上周改善
-- 运动: 累计 150 分钟，达到推荐量
-- 用药: 整体依从性 92%
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        return f"无效的用户ID: {user_id}"
 
-✅ 亮点:
-- 睡眠质量持续改善
-- 运动量达标
+    since = date.today() - timedelta(days=7)
 
-⚠️ 关注点:
-- 周三、周四血压偏高
-- 有2次漏服降糖药
+    async with async_session_factory() as session:
+        # Health entries for last 7 days
+        h_stmt = (
+            select(HealthEntry)
+            .options(selectinload(HealthEntry.question_responses))
+            .where(
+                and_(
+                    HealthEntry.user_id == uid,
+                    HealthEntry.entry_date >= since,
+                )
+            )
+            .order_by(HealthEntry.entry_date.asc())
+        )
+        entries = (await session.execute(h_stmt)).scalars().all()
 
-💡 本周建议:
-- 设置用药提醒避免漏服
-- 周末注意饮食控制"""
+        # Active medications
+        m_stmt = (
+            select(MedicationCourse)
+            .join(Medication, MedicationCourse.med_id == Medication.id)
+            .options(selectinload(MedicationCourse.medication))
+            .where(
+                and_(
+                    Medication.user_id == uid,
+                    MedicationCourse.status == "active",
+                )
+            )
+        )
+        courses = (await session.execute(m_stmt)).scalars().all()
+
+    parts = [f"【本周健康周报摘要（最近7天）】"]
+    parts.append(f"📊 健康打卡: {len(entries)}/7 天")
+
+    # Aggregate question responses by type
+    type_values: dict[str, list[str]] = {}
+    for e in entries:
+        for qr in e.question_responses:
+            qid = qr.question_id or "other"
+            label = qr.answer_label or qr.answer_value or ""
+            if label:
+                type_values.setdefault(qid, []).append(label)
+
+    if type_values:
+        parts.append("\n📋 数据概览:")
+        for qid, vals in type_values.items():
+            parts.append(f"  - {qid}: {len(vals)} 条记录")
+
+    if courses:
+        parts.append("\n💊 在用药物:")
+        for c in courses:
+            med = c.medication
+            parts.append(f"  - {med.name} {c.dose_text or ''} {c.frequency_text or ''}")
+
+    if not entries:
+        parts.append("\n⚠️ 本周无健康打卡记录，建议保持每日记录习惯")
+
+    return "\n".join(parts)
 
 
 @tool
-def compare_periods(
+async def compare_periods(
     user_id: str,
     metric: str,
     period1_start: str,
@@ -289,12 +453,47 @@ def compare_periods(
     """
     log.info("tool_compare_periods", user_id=user_id, metric=metric)
 
-    return f"""【{metric} 周期对比】
-第一周期 ({period1_start} 起{duration_days}天): 平均值 偏高
-第二周期 ({period2_start} 起{duration_days}天): 平均值 正常
+    try:
+        uid = UUID(user_id)
+        p1 = date.fromisoformat(period1_start)
+        p2 = date.fromisoformat(period2_start)
+    except (ValueError, TypeError) as e:
+        return f"参数解析错误: {e}"
 
-变化: 改善 12%
-分析: 近期生活方式调整效果显著"""
+    async def _query_period(session, start: date, days: int) -> list[str]:
+        end = start + timedelta(days=days)
+        stmt = (
+            select(HealthEntry)
+            .options(selectinload(HealthEntry.question_responses))
+            .where(
+                and_(
+                    HealthEntry.user_id == uid,
+                    HealthEntry.entry_date >= start,
+                    HealthEntry.entry_date < end,
+                )
+            )
+        )
+        rows = (await session.execute(stmt)).scalars().all()
+        vals = []
+        for e in rows:
+            for qr in e.question_responses:
+                if metric in (qr.question_id or ""):
+                    vals.append(qr.answer_label or qr.answer_value or "")
+        return vals
+
+    async with async_session_factory() as session:
+        v1 = await _query_period(session, p1, duration_days)
+        v2 = await _query_period(session, p2, duration_days)
+
+    parts = [f"【{metric} 周期对比】"]
+    parts.append(f"周期一 ({period1_start} 起{duration_days}天): {len(v1)} 条记录")
+    if v1:
+        parts.append(f"  数据: {', '.join(v1[:5])}")
+    parts.append(f"周期二 ({period2_start} 起{duration_days}天): {len(v2)} 条记录")
+    if v2:
+        parts.append(f"  数据: {', '.join(v2[:5])}")
+
+    return "\n".join(parts)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

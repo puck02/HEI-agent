@@ -165,15 +165,15 @@ async def execute_med_tool(action_name: str, input_str: str, user_id: str) -> st
             inputs = {"drug_name": input_str}
 
         if action_name == "search_medication_info":
-            return search_medication_info.invoke(inputs)
+            return await search_medication_info.ainvoke(inputs)
         elif action_name == "check_drug_interaction":
-            return check_drug_interaction.invoke(inputs)
+            return await check_drug_interaction.ainvoke(inputs)
         elif action_name == "query_medication_records":
             inputs["user_id"] = user_id
-            return query_medication_records.invoke(inputs)
+            return await query_medication_records.ainvoke(inputs)
         elif action_name == "query_health_data":
             inputs["user_id"] = user_id
-            return query_health_data.invoke(inputs)
+            return await query_health_data.ainvoke(inputs)
         else:
             return f"未知工具: {action_name}"
     except Exception as e:
