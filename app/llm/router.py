@@ -139,7 +139,8 @@ class LLMRouter:
 
                 provider.record_success()
 
-                content = resp.choices[0].message.content or ""
+                msg = resp.choices[0].message
+                content = msg.content or ""
                 usage = {}
                 if resp.usage:
                     usage = {
@@ -148,12 +149,36 @@ class LLMRouter:
                         "total_tokens": resp.usage.total_tokens,
                     }
 
+                # Reasoning models (GLM-4.7 etc.) may put all tokens into
+                # reasoning_content and return empty content when max_tokens
+                # is too low.  Extract reasoning_content for diagnostics.
+                reasoning = ""
+                try:
+                    dump = msg.model_dump()
+                    reasoning = (
+                        dump.get("reasoning_content")
+                        or (dump.get("provider_specific_fields") or {}).get("reasoning_content")
+                        or ""
+                    )
+                except Exception:
+                    pass
+
+                if not content and reasoning:
+                    log.warning(
+                        "llm_empty_content_with_reasoning",
+                        provider=provider.name,
+                        model=provider.model,
+                        reasoning_len=len(reasoning),
+                        tokens=usage.get("total_tokens", 0),
+                    )
+
                 log.info(
                     "llm_call_success",
                     provider=provider.name,
                     model=provider.model,
                     latency_ms=round(latency, 1),
                     tokens=usage.get("total_tokens", 0),
+                    has_reasoning=bool(reasoning),
                 )
                 return LLMCallResult(
                     content=content,

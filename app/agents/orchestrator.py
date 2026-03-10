@@ -351,7 +351,10 @@ async def run_chat(
     """
     Fast path for chat — single LLM call with all context pre-loaded.
     No intent classification, no ReAct, no reflection.
-    Typical response time: 3-8 seconds.
+    Typical response time: 3-15 seconds.
+
+    Uses max_tokens=4096 to accommodate reasoning models (GLM-4.7)
+    that consume most of the token budget on internal reasoning.
     """
     router = get_llm_router()
 
@@ -381,10 +384,35 @@ async def run_chat(
         result = await router.chat(
             messages=messages,
             temperature=0.7,
-            max_tokens=800,
+            max_tokens=1024,
         )
+        answer = result.content.strip()
+
+        # If model returns empty, retry once
+        if not answer:
+            log.warning(
+                "run_chat_empty_response_retry",
+                user_id=user_id,
+                message_preview=message[:50],
+            )
+            result = await router.chat(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=2048,
+            )
+            answer = result.content.strip()
+
+        # If still empty after retry, return a helpful fallback
+        if not answer:
+            log.error(
+                "run_chat_empty_after_retry",
+                user_id=user_id,
+                message_preview=message[:50],
+            )
+            answer = "🎀 抱歉呀，Kitty 这次没想好怎么回答你～你能换个方式再问一下吗？"
+
         return {
-            "response": result.content,
+            "response": answer,
             "model_used": result.model,
             "agent_used": "kitty_chat",
         }
