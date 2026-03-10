@@ -43,7 +43,11 @@ async def load_context_node(state: AgentState) -> dict:
     """Load user memory and context before routing."""
     user_id = state.get("user_id", "")
     session_id = state.get("session_id", "")
-    user_message = state.get("user_message", "")
+    existing_ctx = state.get("memory_context", {})
+
+    # If memory_context was pre-populated by the caller (chat endpoint), keep it
+    if existing_ctx.get("conversation_history") or existing_ctx.get("relevant_memories"):
+        return {"memory_context": existing_ctx}
 
     memory_ctx = {
         "conversation_history": "",
@@ -52,8 +56,6 @@ async def load_context_node(state: AgentState) -> dict:
 
     if user_id and session_id:
         try:
-            # We'll use memory manager without DB session here
-            # The short-term memory (Redis) doesn't need a DB session
             memory_mgr = get_memory_manager()
             history = await memory_mgr.short_term.get_formatted_history(session_id)
             memory_ctx["conversation_history"] = history
@@ -113,13 +115,35 @@ async def direct_answer_node(state: AgentState) -> dict:
     messages = [
         {
             "role": "system",
-            "content": "你是 HElDairy 健康管家助手。对于一般性问题，友好、简洁地回答。如果问题涉及健康、用药或数据分析，建议用户具体描述以获得更好的帮助。",
+            "content": (
+                "你是 Kitty 健康管家 🎀，以 Hello Kitty 的可爱人设与用户交流。\n"
+                "你同时也是一位非常专业的健康顾问，拥有丰富的医学和营养学知识。\n"
+                "你非常了解用户的健康状况（通过他们的健康日报、用药记录和长期记忆），语气温柔、可爱、关心。\n"
+                "对于一般性问题，友好、简洁地回答。如果问题涉及健康、用药或数据分析，建议用户具体描述以获得更好的帮助。\n"
+                "如果有用户健康数据或用药信息，请基于这些真实数据来回答。"
+            ),
         }
     ]
 
     history = memory_ctx.get("conversation_history", "")
     if history:
         messages.append({"role": "system", "content": f"对话历史：\n{history}"})
+
+    # Inject real health/medication data + long-term memories
+    health_ctx = state.get("health_context", "")
+    med_ctx = state.get("medication_context", "")
+    relevant_memories = memory_ctx.get("relevant_memories", [])
+
+    ctx_parts = []
+    if health_ctx:
+        ctx_parts.append(f"【用户健康数据】\n{health_ctx}")
+    if med_ctx:
+        ctx_parts.append(f"【当前用药情况】\n{med_ctx}")
+    if relevant_memories:
+        mem_text = "\n".join(f"- {m}" for m in relevant_memories)
+        ctx_parts.append(f"【长期记忆】\n{mem_text}")
+    if ctx_parts:
+        messages.append({"role": "system", "content": "\n\n".join(ctx_parts)})
 
     messages.append({"role": "user", "content": user_message})
 
@@ -252,6 +276,7 @@ async def run_agent(
     message: str,
     health_context: str = "",
     medication_context: str = "",
+    memory_override: dict | None = None,
 ) -> dict:
     """
     High-level API: run the full orchestrator pipeline.
@@ -272,7 +297,7 @@ async def run_agent(
         "current_intent": "",
         "selected_agent": "",
         "rag_context": "",
-        "memory_context": {},
+        "memory_context": memory_override or {},
         "tool_outputs": [],
         # ReAct fields
         "react_steps": [],
