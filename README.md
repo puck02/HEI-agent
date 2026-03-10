@@ -93,8 +93,6 @@ cp .env.example .env
 
 ```bash
 docker compose up -d
-# 如需仅重建应用容器：
-docker compose up -d --force-recreate --no-deps agent
 ```
 
 这会启动 4 个服务：

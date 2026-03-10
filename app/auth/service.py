@@ -4,12 +4,15 @@ JWT token creation, password hashing, and authentication service.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import asyncpg
 import jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -77,18 +80,24 @@ def decode_token(token: str) -> dict:
 
 
 async def get_user_by_username(db: AsyncSession, username: str) -> User | None:
-    result = await db.execute(select(User).where(User.username == username))
-    return result.scalar_one_or_none()
+    return await _scalar_one_or_none_with_retry(
+        db,
+        select(User).where(User.username == username),
+    )
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.email == email))
-    return result.scalar_one_or_none()
+    return await _scalar_one_or_none_with_retry(
+        db,
+        select(User).where(User.email == email),
+    )
 
 
 async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:
-    result = await db.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
+    return await _scalar_one_or_none_with_retry(
+        db,
+        select(User).where(User.id == user_id),
+    )
 
 
 async def create_user(
@@ -98,13 +107,49 @@ async def create_user(
     password: str,
     display_name: str | None = None,
 ) -> User:
-    user = User(
-        username=username,
-        email=email,
-        hashed_password=hash_password(password),
-        display_name=display_name,
+    for attempt in range(3):
+        user = User(
+            username=username,
+            email=email,
+            hashed_password=hash_password(password),
+            display_name=display_name,
+        )
+        db.add(user)
+        try:
+            await db.flush()
+            await db.refresh(user)
+            await db.commit()
+            return user
+        except Exception as exc:
+            if not _is_transient_db_connection_error(exc) or attempt == 2:
+                raise
+            await db.rollback()
+            await asyncio.sleep(0.2 * (attempt + 1))
+
+
+async def _scalar_one_or_none_with_retry(db: AsyncSession, stmt):
+    for attempt in range(3):
+        try:
+            result = await db.execute(stmt)
+            return result.scalar_one_or_none()
+        except Exception as exc:
+            if not _is_transient_db_connection_error(exc) or attempt == 2:
+                raise
+            await db.rollback()
+            await asyncio.sleep(0.2 * (attempt + 1))
+
+
+def _is_transient_db_connection_error(exc: Exception) -> bool:
+    if isinstance(exc, asyncpg.PostgresConnectionError):
+        return True
+    if isinstance(exc, DBAPIError) and isinstance(getattr(exc, "orig", None), asyncpg.PostgresConnectionError):
+        return True
+
+    text = str(exc).lower()
+    transient_markers = (
+        "connection was closed in the middle of operation",
+        "connection_lost",
+        "targetserverattributenotmatched",
+        "connection refused",
     )
-    db.add(user)
-    await db.flush()
-    await db.refresh(user)
-    return user
+    return any(marker in text for marker in transient_markers)
