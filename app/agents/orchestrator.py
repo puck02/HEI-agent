@@ -343,10 +343,15 @@ KITTY_CHAT_PROMPT = """\
 **Step 2 — 检索（Retrieve）**
 - 从【用户健康数据】中提取相关指标（步数、睡眠、疼痛、情绪等）
 - 从【当前用药情况】中提取相关药物信息
+- 从【长期记忆】中提取用户的历史健康模式、偏好和就医记录（如果提供了的话）
+- 从【知识库参考】中获取专业医学/营养学/中医知识（如果提供了的话）
 - 从对话历史中提取上下文（用户之前说了什么）
+- 注意：并非所有上下文都会出现，只使用实际提供的信息来回答
 
 **Step 3 — 推理（Reason）**
-- 综合数据和医学知识，形成个性化判断
+- 综合数据、长期记忆和知识库，形成个性化判断
+- 如果有长期记忆，结合用户的历史模式给出更贴合的建议
+- 如果有知识库参考，用专业知识支撑你的回答（但不要直接照搬，要结合用户个人情况）
 - 评估是否存在需要关注的健康风险
 - 区分"可以给建议的"和"需要提醒就医的"
 
@@ -381,7 +386,7 @@ KITTY_CHAT_PROMPT = """\
 
 # 特殊场景处理
 
-- **用户问"你了解我吗/你认识我吗"**：肯定回答，列举具体数据为证（步数、睡眠、用药等）
+- **用户问"你了解我吗/你认识我吗"**：肯定回答，列举具体数据为证（步数、睡眠、用药等），如果有长期记忆中的健康模式也一并提及
 - **用户情绪低落**：优先情感支持，不急于给健康建议，倾听比指导更重要
 - **数据异常（疼痛评分高/用药较多）**：温柔提醒，不制造焦虑，建议就医用"如果方便的话"
 - **没有健康数据**：引导用户去 App 打卡记录，告知记录的好处
@@ -395,25 +400,36 @@ async def run_chat(
     health_context: str = "",
     medication_context: str = "",
     conversation_history: str = "",
+    long_term_memories: list[str] | None = None,
+    knowledge_context: str = "",
 ) -> dict:
     """
     Fast path for chat — single LLM call with all context pre-loaded.
     No intent classification, no ReAct, no reflection.
     Typical response time: 3-15 seconds.
 
-    Uses max_tokens=4096 to accommodate reasoning models (GLM-4.7)
-    that consume most of the token budget on internal reasoning.
+    Context sources:
+    - health_context: recent 7-day health diary from PostgreSQL
+    - medication_context: active medications from PostgreSQL
+    - conversation_history: Redis short-term memory (recent turns)
+    - long_term_memories: pgvector semantic recall (health patterns, preferences, medical history)
+    - knowledge_context: RAG retrieval from Qdrant (health/medication/TCM knowledge)
     """
     router = get_llm_router()
 
     messages = [{"role": "system", "content": KITTY_CHAT_PROMPT}]
 
-    # Inject health/medication context
+    # Inject all context sources into a single system message
     ctx_parts = []
     if health_context:
         ctx_parts.append(f"【用户健康数据】\n{health_context}")
     if medication_context:
         ctx_parts.append(f"【当前用药情况】\n{medication_context}")
+    if long_term_memories:
+        mem_text = "\n".join(f"- {m}" for m in long_term_memories)
+        ctx_parts.append(f"【长期记忆（用户历史健康模式与偏好）】\n{mem_text}")
+    if knowledge_context:
+        ctx_parts.append(f"【知识库参考】\n{knowledge_context}")
     if ctx_parts:
         messages.append({"role": "system", "content": "\n\n".join(ctx_parts)})
 

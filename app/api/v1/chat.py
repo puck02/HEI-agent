@@ -2,12 +2,14 @@
 Chat API — unified agent conversation endpoint.
 
 Optimized fast-path: single LLM call with all context pre-loaded.
+Smart retrieval: always fetches long-term memory, conditionally fetches RAG knowledge.
 No intent classification → no ReAct → no reflection → fast response.
 """
 
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 from datetime import date, timedelta
 
@@ -24,10 +26,20 @@ from app.memory.manager import get_memory_manager
 from app.models.health_data import HealthEntry, QuestionResponse
 from app.models.medication import Medication, MedicationCourse
 from app.models.user import User
+from app.rag.engine import get_rag_engine
 from app.schemas.chat import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 log = structlog.get_logger(__name__)
+
+# Keywords that trigger RAG knowledge base retrieval
+_RAG_KEYWORDS = re.compile(
+    r"(健康|症状|疼痛|头痛|失眠|睡眠|血压|血糖|心率|体重|运动|饮食|营养|"
+    r"药|用药|服药|剂量|副作用|中医|养生|穴位|食疗|调理|"
+    r"疾病|感冒|发烧|咳嗽|过敏|炎症|焦虑|抑郁|压力|疲劳|"
+    r"维生素|蛋白质|碳水|脂肪|膳食|忌口|禁忌|怎么办|怎么治|如何缓解)",
+    re.IGNORECASE,
+)
 
 
 async def _build_health_context(db: AsyncSession, user_id: uuid.UUID) -> str:
@@ -117,19 +129,65 @@ async def chat(
     session_id = req.session_id or f"s-{uuid.uuid4().hex[:12]}"
 
     try:
-        # 1. Build context from DB (parallel queries)
-        health_ctx, med_ctx = await asyncio.gather(
+        memory_mgr = get_memory_manager()
+
+        # 1. Build context from DB + long-term memory + optional RAG (all parallel)
+        #    Long-term memory is always fetched (cheap: ~200ms embedding + DB query).
+        #    RAG knowledge base is fetched only when the message contains health/med keywords.
+        need_rag = bool(_RAG_KEYWORDS.search(req.message))
+
+        async def _fetch_long_term_memories() -> list[str]:
+            """Fetch semantically relevant long-term memories for this user."""
+            try:
+                result = await memory_mgr.recall(
+                    db=db,
+                    user_id=current_user.id,
+                    session_id=session_id,
+                    query=req.message,
+                    top_k=5,
+                )
+                return result.get("relevant_memories", [])
+            except Exception as e:
+                log.warning("long_term_recall_failed", error=str(e))
+                return []
+
+        async def _fetch_rag_context() -> str:
+            """Fetch relevant knowledge from RAG (Qdrant) if needed."""
+            if not need_rag:
+                return ""
+            try:
+                rag = get_rag_engine()
+                return await rag.retrieve_as_context(
+                    query=req.message,
+                    top_k=3,
+                )
+            except Exception as e:
+                log.warning("rag_retrieval_failed", error=str(e))
+                return ""
+
+        health_ctx, med_ctx, long_term_memories, knowledge_ctx = await asyncio.gather(
             _build_health_context(db, current_user.id),
             _build_medication_context(db, current_user.id),
+            _fetch_long_term_memories(),
+            _fetch_rag_context(),
         )
 
         # 2. Get conversation history from Redis (fast, no embedding call)
         conversation_history = ""
         try:
-            memory_mgr = get_memory_manager()
             conversation_history = await memory_mgr.short_term.get_formatted_history(session_id)
         except Exception:
             pass  # Redis down → skip history, not critical
+
+        log.info(
+            "chat_context_loaded",
+            user_id=str(current_user.id),
+            has_health=bool(health_ctx),
+            has_med=bool(med_ctx),
+            long_term_count=len(long_term_memories),
+            has_rag=bool(knowledge_ctx),
+            rag_triggered=need_rag,
+        )
 
         # 3. Single fast LLM call with all context
         result = await asyncio.wait_for(
@@ -140,6 +198,8 @@ async def chat(
                 health_context=health_ctx,
                 medication_context=med_ctx,
                 conversation_history=conversation_history,
+                long_term_memories=long_term_memories,
+                knowledge_context=knowledge_ctx,
             ),
             timeout=50.0,  # 50s deadline (client readTimeout=60s)
         )

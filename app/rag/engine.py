@@ -90,15 +90,15 @@ class RAGEngine:
         all_results: list[dict] = []
         for coll_name in target_collections:
             try:
-                search_params = {
+                query_params: dict[str, Any] = {
                     "collection_name": coll_name,
-                    "query_vector": q_embedding,
+                    "query": q_embedding,
                     "limit": self.rerank_top_k,
                     "with_payload": True,
                 }
 
                 if filters:
-                    search_params["query_filter"] = models.Filter(
+                    query_params["query_filter"] = models.Filter(
                         must=[
                             models.FieldCondition(
                                 key=k,
@@ -108,9 +108,9 @@ class RAGEngine:
                         ]
                     )
 
-                results = await self.client.search(**search_params)
+                response = await self.client.query_points(**query_params)
 
-                for hit in results:
+                for hit in response.points:
                     payload = hit.payload or {}
                     all_results.append({
                         "content": payload.get("content", ""),

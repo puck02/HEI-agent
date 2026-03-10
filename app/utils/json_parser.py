@@ -38,9 +38,17 @@ def extract_json_from_response(content: str) -> str:
     
     # Try to find JSON object/array in the content
     # Find first { or [ and match to corresponding closing bracket
+    # Check both, pick whichever appears first in the content
+    candidates = []
     for start_char, end_char in [('{', '}'), ('[', ']')]:
         start_idx = content.find(start_char)
         if start_idx != -1:
+            candidates.append((start_idx, start_char, end_char))
+    
+    # Sort by position — prefer the bracket that appears first
+    candidates.sort(key=lambda x: x[0])
+    
+    for start_idx, start_char, end_char in candidates:
             # Find the matching closing bracket
             depth = 0
             in_string = False
