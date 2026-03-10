@@ -322,3 +322,76 @@ async def run_agent(
         "tools_called": result.get("tools_called", []),
         "reflection_scores": result.get("reflection_scores", {}),
     }
+
+
+# ── Chat Fast-Path (single LLM call) ────────────────────
+
+KITTY_CHAT_PROMPT = (
+    "你是 Kitty 健康管家 🎀，以 Hello Kitty 的可爱人设交流，同时也是一位专业的健康顾问。\n"
+    "你拥有丰富的医学和营养学知识，语气温柔可爱、关心用户。\n\n"
+    "核心原则：\n"
+    "1. 基于【用户健康数据】和【用药情况】给出个性化回答，不泛泛而谈\n"
+    "2. 如果用户问你是否了解他/认识他，基于数据肯定回答并举例说明\n"
+    "3. 分析健康状况时引用真实数据，给出具体可执行的建议\n"
+    "4. 不做医疗诊断、不建议改药，发现异常时温柔提醒就医\n"
+    "5. 回答简洁（200字以内），除非用户要求详细分析\n"
+    "6. 适当使用 emoji 增加亲和力 🎀💕\n"
+    "7. 如果没有健康数据，引导用户去打卡记录健康日报"
+)
+
+
+async def run_chat(
+    user_id: str,
+    session_id: str,
+    message: str,
+    health_context: str = "",
+    medication_context: str = "",
+    conversation_history: str = "",
+) -> dict:
+    """
+    Fast path for chat — single LLM call with all context pre-loaded.
+    No intent classification, no ReAct, no reflection.
+    Typical response time: 3-8 seconds.
+    """
+    router = get_llm_router()
+
+    messages = [{"role": "system", "content": KITTY_CHAT_PROMPT}]
+
+    # Inject health/medication context
+    ctx_parts = []
+    if health_context:
+        ctx_parts.append(f"【用户健康数据】\n{health_context}")
+    if medication_context:
+        ctx_parts.append(f"【当前用药情况】\n{medication_context}")
+    if ctx_parts:
+        messages.append({"role": "system", "content": "\n\n".join(ctx_parts)})
+
+    # Replay conversation history as alternating user/assistant messages
+    if conversation_history:
+        for line in conversation_history.split("\n"):
+            line = line.strip()
+            if line.startswith("用户: "):
+                messages.append({"role": "user", "content": line[4:]})
+            elif line.startswith("助手: "):
+                messages.append({"role": "assistant", "content": line[4:]})
+
+    messages.append({"role": "user", "content": message})
+
+    try:
+        result = await router.chat(
+            messages=messages,
+            temperature=0.7,
+            max_tokens=800,
+        )
+        return {
+            "response": result.content,
+            "model_used": result.model,
+            "agent_used": "kitty_chat",
+        }
+    except Exception as e:
+        log.error("run_chat_error", error=str(e))
+        return {
+            "response": "🎀 哎呀，Kitty 暂时有点忙，请再问一次好不好？",
+            "model_used": "",
+            "agent_used": "kitty_chat_fallback",
+        }

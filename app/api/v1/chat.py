@@ -1,20 +1,25 @@
 """
 Chat API — unified agent conversation endpoint.
+
+Optimized fast-path: single LLM call with all context pre-loaded.
+No intent classification → no ReAct → no reflection → fast response.
 """
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import date, timedelta
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.agents.orchestrator import run_agent
+from app.agents.orchestrator import run_chat
 from app.auth.router import get_current_user
-from app.database import get_db
+from app.database import async_session_factory, get_db
 from app.memory.manager import get_memory_manager
 from app.models.health_data import HealthEntry, QuestionResponse
 from app.models.medication import Medication, MedicationCourse
@@ -22,6 +27,7 @@ from app.models.user import User
 from app.schemas.chat import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+log = structlog.get_logger(__name__)
 
 
 async def _build_health_context(db: AsyncSession, user_id: uuid.UUID) -> str:
@@ -73,52 +79,93 @@ async def _build_medication_context(db: AsyncSession, user_id: uuid.UUID) -> str
     return "用户当前用药:\n" + "\n".join(lines)
 
 
+async def _background_memorize(
+    user_id: uuid.UUID,
+    session_id: str,
+    user_message: str,
+    assistant_response: str,
+) -> None:
+    """Background task: save to short-term memory and extract long-term insights."""
+    try:
+        memory_mgr = get_memory_manager()
+        # Save to Redis short-term memory
+        await memory_mgr.short_term.add_message(session_id, "user", user_message)
+        await memory_mgr.short_term.add_message(session_id, "assistant", assistant_response)
+    except Exception as e:
+        log.warning("bg_short_term_save_failed", error=str(e))
+
+    # Extract and store long-term insights (uses its own DB session)
+    try:
+        memory_mgr = get_memory_manager()
+        async with async_session_factory() as db:
+            conversation = f"用户: {user_message}\n助手: {assistant_response}"
+            await memory_mgr.extract_and_store_insights(
+                db=db, user_id=user_id, conversation_text=conversation
+            )
+            await db.commit()
+    except Exception as e:
+        log.warning("bg_insight_extraction_failed", error=str(e))
+
+
 @router.post("", response_model=ChatResponse)
 async def chat(
     req: ChatRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Send a message to the AI health agent."""
+    """Send a message to the AI health agent (fast path)."""
     session_id = req.session_id or f"s-{uuid.uuid4().hex[:12]}"
 
     try:
-        # Build real context from DB
-        health_context = await _build_health_context(db, current_user.id)
-        medication_context = await _build_medication_context(db, current_user.id)
-
-        # Recall long-term memory
-        memory_mgr = get_memory_manager()
-        memory_ctx = await memory_mgr.recall(
-            db=db,
-            user_id=current_user.id,
-            session_id=session_id,
-            query=req.message,
+        # 1. Build context from DB (parallel queries)
+        health_ctx, med_ctx = await asyncio.gather(
+            _build_health_context(db, current_user.id),
+            _build_medication_context(db, current_user.id),
         )
 
-        result = await run_agent(
-            user_id=str(current_user.id),
-            session_id=session_id,
-            message=req.message,
-            health_context=health_context,
-            medication_context=medication_context,
-            memory_override=memory_ctx,
-        )
-
-        # Extract and store long-term insights in background
+        # 2. Get conversation history from Redis (fast, no embedding call)
+        conversation_history = ""
         try:
-            conversation = f"用户: {req.message}\n助手: {result['response']}"
-            await memory_mgr.extract_and_store_insights(
-                db=db, user_id=current_user.id, conversation_text=conversation
-            )
+            memory_mgr = get_memory_manager()
+            conversation_history = await memory_mgr.short_term.get_formatted_history(session_id)
         except Exception:
-            pass  # non-critical
+            pass  # Redis down → skip history, not critical
+
+        # 3. Single fast LLM call with all context
+        result = await asyncio.wait_for(
+            run_chat(
+                user_id=str(current_user.id),
+                session_id=session_id,
+                message=req.message,
+                health_context=health_ctx,
+                medication_context=med_ctx,
+                conversation_history=conversation_history,
+            ),
+            timeout=50.0,  # 50s deadline (client readTimeout=60s)
+        )
+
+        # 4. Background: save memory + extract insights (non-blocking)
+        asyncio.create_task(
+            _background_memorize(
+                current_user.id, session_id, req.message, result["response"]
+            )
+        )
 
         return ChatResponse(
             answer=result["response"],
-            session_id=result["session_id"],
+            session_id=session_id,
             agent_used=result.get("agent_used"),
             model_used=result.get("model_used"),
         )
+
+    except asyncio.TimeoutError:
+        log.error("chat_timeout", user_id=str(current_user.id), message=req.message[:50])
+        return ChatResponse(
+            answer="🎀 哎呀，Kitty 想太久啦～请再问我一次好不好？",
+            session_id=session_id,
+            agent_used="timeout_fallback",
+            model_used="",
+        )
     except Exception as e:
+        log.error("chat_error", error=str(e), user_id=str(current_user.id))
         raise HTTPException(status_code=500, detail=f"Agent error: {e}")
