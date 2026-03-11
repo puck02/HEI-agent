@@ -25,6 +25,7 @@ from app.models.health_data import (
 from app.models.medication import Medication, MedicationCourse, MedicationEvent
 from app.models.memory import MemoryEntry
 from app.models.user import User
+from app.memory.manager import get_memory_manager
 from app.schemas.health import (
     SyncChange,
     SyncEntityEnvelope,
@@ -734,4 +735,12 @@ async def clear_user_data(
 
     await db.commit()
 
-    return {"status": "ok", "message": "所有用户数据已清除"}
+    # Clear Redis short-term chat memory for this user (best-effort).
+    cleared_sessions = 0
+    try:
+        memory_mgr = get_memory_manager()
+        cleared_sessions = await memory_mgr.short_term.clear_user_sessions(str(uid))
+    except Exception:
+        pass
+
+    return {"status": "ok", "message": "所有用户数据已清除", "cleared_sessions": str(cleared_sessions)}

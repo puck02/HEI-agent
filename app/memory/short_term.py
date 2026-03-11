@@ -27,6 +27,18 @@ class ShortTermMemory:
     def _key(self, session_id: str) -> str:
         return f"stm:{session_id}"
 
+    def _user_sessions_key(self, user_id: str) -> str:
+        return f"stm:user_sessions:{user_id}"
+
+    async def register_session(self, user_id: str, session_id: str) -> None:
+        """Record that a session belongs to a user (for user-level clearing)."""
+        if not user_id or not session_id:
+            return
+        user_key = self._user_sessions_key(user_id)
+        await self.redis.sadd(user_key, session_id)
+        # Keep mapping alive at least as long as short-term memory TTL.
+        await self.redis.expire(user_key, self.ttl)
+
     async def get_history(self, session_id: str) -> list[dict]:
         """Retrieve conversation history for a session."""
         raw = await self.redis.get(self._key(session_id))
@@ -58,6 +70,22 @@ class ShortTermMemory:
     async def clear(self, session_id: str) -> None:
         """Clear a session's history."""
         await self.redis.delete(self._key(session_id))
+
+    async def clear_user_sessions(self, user_id: str) -> int:
+        """Clear all tracked short-term sessions for a user."""
+        if not user_id:
+            return 0
+        user_key = self._user_sessions_key(user_id)
+        session_ids = await self.redis.smembers(user_key)
+        if not session_ids:
+            await self.redis.delete(user_key)
+            return 0
+
+        keys = [self._key(sid) for sid in session_ids]
+        if keys:
+            await self.redis.delete(*keys)
+        await self.redis.delete(user_key)
+        return len(session_ids)
 
     async def get_formatted_history(self, session_id: str) -> str:
         """Return history as a formatted text block for LLM context."""

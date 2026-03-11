@@ -131,6 +131,12 @@ async def chat(
     try:
         memory_mgr = get_memory_manager()
 
+        # Track user-session relation for later user-level cleanup.
+        try:
+            await memory_mgr.short_term.register_session(str(current_user.id), session_id)
+        except Exception as e:
+            log.warning("register_chat_session_failed", error=str(e))
+
         # 1. Build context from DB + long-term memory + optional RAG (all parallel)
         #    Long-term memory is always fetched (cheap: ~200ms embedding + DB query).
         #    RAG knowledge base is fetched only when the message contains health/med keywords.
