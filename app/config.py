@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     weather_api_key: Optional[str] = None
     search_api_key: Optional[str] = None
 
+    # ── Push (FCM) ───────────────────────────────────────
+    fcm_service_account_json: Optional[str] = None
+
     # ── Helpers ──────────────────────────────────────────
     @property
     def is_production(self) -> bool:

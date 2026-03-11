@@ -26,9 +26,15 @@ from app.models.medication import Medication, MedicationCourse, MedicationEvent
 from app.models.memory import MemoryEntry
 from app.models.user import User
 from app.memory.manager import get_memory_manager
+from app.notifications.queue import get_notification_queue
+from app.push.fcm import get_push_service
 from app.schemas.health import (
+    PushSendRequest,
+    PushTokenDeleteRequest,
+    PushTokenUpsertRequest,
     SyncChange,
     SyncEntityEnvelope,
+    SyncNotificationCreateRequest,
     SyncPullResponse,
     SyncPushRequest,
     SyncPushResponse,
@@ -658,6 +664,12 @@ async def sync_pull(
         for row in tomb_rows
     ]
 
+    notifications = []
+    try:
+        notifications = await get_notification_queue().pull(str(current_user.id), limit=20)
+    except Exception:
+        notifications = []
+
     all_versions = [item.server_version for item in changes] + [item.deleted_at for item in tombstones]
     next_cursor = max(all_versions) if all_versions else since
     now_ms = _now_millis()
@@ -665,9 +677,77 @@ async def sync_pull(
     return SyncPullResponse(
         changes=changes,
         tombstones=tombstones,
+        notifications=notifications,
         next_cursor=next_cursor,
         server_time=now_ms,
     )
+
+
+@router.post("/notifications/test")
+async def create_test_notification(
+    req: SyncNotificationCreateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Enqueue a server notification for current user (used for validation and manual trigger)."""
+    item = await get_notification_queue().enqueue(
+        user_id=str(current_user.id),
+        title=req.title,
+        body=req.body,
+        type_=req.type,
+        data=req.data,
+    )
+
+    # Optional realtime delivery via FCM.
+    push_result = await get_push_service().send_to_user(
+        user_id=str(current_user.id),
+        title=req.title,
+        body=req.body,
+        data={k: str(v) for k, v in req.data.items()},
+    )
+    return {
+        "status": "ok",
+        "notification_id": item.get("id", ""),
+        "push_result": push_result,
+    }
+
+
+@router.post("/push-token")
+async def upsert_push_token(
+    req: PushTokenUpsertRequest,
+    current_user: User = Depends(get_current_user),
+):
+    await get_push_service().register_token(
+        user_id=str(current_user.id),
+        token=req.token,
+        platform=req.platform,
+    )
+    return {"status": "ok"}
+
+
+@router.delete("/push-token")
+async def delete_push_token(
+    req: PushTokenDeleteRequest,
+    current_user: User = Depends(get_current_user),
+):
+    await get_push_service().unregister_token(
+        user_id=str(current_user.id),
+        token=req.token,
+    )
+    return {"status": "ok"}
+
+
+@router.post("/push/send-test")
+async def send_push_test(
+    req: PushSendRequest,
+    current_user: User = Depends(get_current_user),
+):
+    result = await get_push_service().send_to_user(
+        user_id=str(current_user.id),
+        title=req.title,
+        body=req.body,
+        data={k: str(v) for k, v in req.data.items()},
+    )
+    return {"status": "ok", **result}
 
 
 @router.get("/status", response_model=SyncStatusResponse)
@@ -703,7 +783,14 @@ async def sync_status(
         total_entries=entries_count.scalar_one() or 0,
         total_medications=meds_count.scalar_one() or 0,
         server_cursor=cursor,
-        capabilities=["sync.upload.v1", "sync.push.v2", "sync.pull.v2", "sync.tombstone.v1", "sync.conflict.v1"],
+        capabilities=[
+            "sync.upload.v1",
+            "sync.push.v2",
+            "sync.pull.v2",
+            "sync.tombstone.v1",
+            "sync.conflict.v1",
+            "sync.notifications.v1",
+        ],
     )
 
 
@@ -740,6 +827,20 @@ async def clear_user_data(
     try:
         memory_mgr = get_memory_manager()
         cleared_sessions = await memory_mgr.short_term.clear_user_sessions(str(uid))
+    except Exception:
+        pass
+
+    # Clear queued server notifications for this user (best-effort).
+    try:
+        await get_notification_queue().clear_user(str(uid))
+    except Exception:
+        pass
+
+    # Clear push tokens for this user (best-effort).
+    try:
+        tokens = await get_push_service().list_tokens(str(uid))
+        for token in tokens:
+            await get_push_service().unregister_token(str(uid), token)
     except Exception:
         pass
 

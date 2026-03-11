@@ -133,9 +133,41 @@ class SyncTombstone(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class SyncNotification(BaseModel):
+    id: str
+    title: str
+    body: str
+    type: str = "general"
+    data: dict[str, Any] = Field(default_factory=dict)
+    created_at: int = 0
+
+
+class SyncNotificationCreateRequest(BaseModel):
+    title: str
+    body: str
+    type: str = "general"
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class PushTokenUpsertRequest(BaseModel):
+    token: str
+    platform: str = "android"
+
+
+class PushTokenDeleteRequest(BaseModel):
+    token: str
+
+
+class PushSendRequest(BaseModel):
+    title: str
+    body: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
 class SyncPullResponse(BaseModel):
     changes: list[SyncEntityEnvelope] = Field(default_factory=list)
     tombstones: list[SyncTombstone] = Field(default_factory=list)
+    notifications: list[SyncNotification] = Field(default_factory=list)
     next_cursor: int = 0
     server_time: int = 0
 

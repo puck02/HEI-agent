@@ -72,6 +72,18 @@ async def lifespan(app: FastAPI):
         pass
 
     try:
+        from app.notifications.queue import get_notification_queue
+        await get_notification_queue().close()
+    except Exception:
+        pass
+
+    try:
+        from app.push.fcm import get_push_service
+        await get_push_service().close()
+    except Exception:
+        pass
+
+    try:
         from app.rag.engine import get_rag_engine
         await get_rag_engine().close()
     except Exception:
