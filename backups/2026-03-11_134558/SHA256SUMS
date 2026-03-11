@@ -1,0 +1,4 @@
+57aa63dde252677da14c631b6b4735ef519c1541b76895c7c7f2a74dffe6018b  postgres/helagent.sql
+de5d123542b785613efcc55099e39c998d9f7a71f8dac9adc8fb0a2040cebfe5  postgres/schema.sql
+b0272c767f3fc07dfa0a7b46323fd5886e10bac09c50b9f367aa0bad1fbf3d50  redis/redis-data.tgz
+ae0290c755c29a643ba2bfda6b5c36055cf6d91a1215598397343023105c51fb  qdrant/qdrant-storage.tgz

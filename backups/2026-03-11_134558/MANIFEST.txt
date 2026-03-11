@@ -1,0 +1,9 @@
+timestamp=2026-03-11_134558
+postgres_db=helagent
+postgres_user=helagent
+files:
+  - postgres/helagent.sql
+  - postgres/schema.sql
+  - redis/redis-data.tgz
+  - qdrant/qdrant-storage.tgz
+checksum_file=SHA256SUMS
