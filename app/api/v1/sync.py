@@ -14,13 +14,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.router import get_current_user
 from app.database import get_db
 from app.models.health_data import (
+    AdviceTracking,
     DailyAdvice,
     DailySummary,
     HealthEntry,
+    InsightReport,
     QuestionResponse,
     SyncTombstoneRecord,
 )
-from app.models.medication import Medication, MedicationCourse
+from app.models.medication import Medication, MedicationCourse, MedicationEvent
+from app.models.memory import MemoryEntry
 from app.models.user import User
 from app.schemas.health import (
     SyncChange,
@@ -701,3 +704,34 @@ async def sync_status(
         server_cursor=cursor,
         capabilities=["sync.upload.v1", "sync.push.v2", "sync.pull.v2", "sync.tombstone.v1", "sync.conflict.v1"],
     )
+
+
+@router.delete("/clear-data")
+async def clear_user_data(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete ALL data belonging to the current user (health, medication, memory, sync)."""
+    uid = current_user.id
+
+    # Order matters: delete children before parents (or rely on CASCADE)
+    await db.execute(delete(SyncTombstoneRecord).where(SyncTombstoneRecord.user_id == uid))
+    await db.execute(delete(MemoryEntry).where(MemoryEntry.user_id == uid))
+    await db.execute(delete(MedicationEvent).where(MedicationEvent.user_id == uid))
+    await db.execute(delete(InsightReport).where(InsightReport.user_id == uid))
+
+    # HealthEntry children (QuestionResponse, DailyAdvice, DailySummary, AdviceTracking)
+    # are CASCADE-deleted via FK, but explicit delete is safer for bulk ops
+    entry_ids_q = select(HealthEntry.id).where(HealthEntry.user_id == uid)
+    await db.execute(delete(AdviceTracking).where(AdviceTracking.entry_id.in_(entry_ids_q)))
+    await db.execute(delete(DailySummary).where(DailySummary.entry_id.in_(entry_ids_q)))
+    await db.execute(delete(DailyAdvice).where(DailyAdvice.entry_id.in_(entry_ids_q)))
+    await db.execute(delete(QuestionResponse).where(QuestionResponse.entry_id.in_(entry_ids_q)))
+    await db.execute(delete(HealthEntry).where(HealthEntry.user_id == uid))
+
+    # Medication + courses/reminders (CASCADE via FK)
+    await db.execute(delete(Medication).where(Medication.user_id == uid))
+
+    await db.commit()
+
+    return {"status": "ok", "message": "所有用户数据已清除"}
