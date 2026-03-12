@@ -87,16 +87,29 @@ class ShortTermMemory:
         await self.redis.delete(user_key)
         return len(session_ids)
 
-    async def get_formatted_history(self, session_id: str) -> str:
+    async def get_formatted_history(
+        self,
+        session_id: str,
+        max_messages: int | None = None,
+        max_chars: int | None = None,
+    ) -> str:
         """Return history as a formatted text block for LLM context."""
         history = await self.get_history(session_id)
         if not history:
             return ""
+
+        if max_messages and max_messages > 0:
+            history = history[-max_messages:]
+
         lines = []
         for msg in history:
             role_label = "用户" if msg["role"] == "user" else "助手"
             lines.append(f"{role_label}: {msg['content']}")
-        return "\n".join(lines)
+
+        formatted = "\n".join(lines)
+        if max_chars and max_chars > 0 and len(formatted) > max_chars:
+            formatted = formatted[-max_chars:]
+        return formatted
 
     async def close(self) -> None:
         await self.redis.close()

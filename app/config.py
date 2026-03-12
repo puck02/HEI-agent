@@ -54,6 +54,11 @@ class Settings(BaseSettings):
 
     openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4o-mini"
+    llm_request_timeout_seconds: float = 22.0
+    chat_pipeline_timeout_seconds: float = 28.0
+    chat_inference_timeout_seconds: float = 16.0
+    chat_history_max_messages: int = 6
+    chat_history_max_chars: int = 1200
 
     # ── Embedding ────────────────────────────────────────
     embedding_provider: str = "glm"

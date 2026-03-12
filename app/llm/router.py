@@ -82,6 +82,7 @@ class LLMRouter:
 
     def __init__(self) -> None:
         settings = get_settings()
+        self.request_timeout = settings.llm_request_timeout_seconds
         self.providers: list[ProviderConfig] = []
         for p in settings.get_active_llm_providers():
             self.providers.append(
@@ -125,6 +126,8 @@ class LLMRouter:
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "api_key": provider.api_key,
+                "timeout": self.request_timeout,
+                "num_retries": 0,
                 **kwargs,
             }
             if provider.api_base:

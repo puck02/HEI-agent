@@ -4,6 +4,8 @@ Chat Pydantic schemas — Agent conversation request / response.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -18,9 +20,11 @@ class ChatResponse(BaseModel):
     session_id: str
     agent_used: str | None = None
     model_used: str | None = None
+    response_time_ms: int | None = None
+    trace: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class StreamEvent(BaseModel):
     """SSE event payload."""
-    event: str  # token / done / error
-    data: str
+    event: str  # progress / done / error
+    data: dict[str, Any]

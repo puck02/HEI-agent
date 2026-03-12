@@ -30,6 +30,7 @@ from app.utils.json_parser import parse_llm_json
 from app.agents.insight_analyst import insight_analyst_node
 from app.agents.medication_agent import medication_agent_node
 from app.agents.state import AgentState
+from app.config import get_settings
 from app.llm.router import get_llm_router
 from app.memory.manager import get_memory_manager
 
@@ -416,6 +417,7 @@ async def run_chat(
     - knowledge_context: RAG retrieval from Qdrant (health/medication/TCM knowledge)
     """
     router = get_llm_router()
+    settings = get_settings()
 
     messages = [{"role": "system", "content": KITTY_CHAT_PROMPT}]
 
@@ -445,10 +447,14 @@ async def run_chat(
     messages.append({"role": "user", "content": message})
 
     try:
+        # Keep completion budget compact for short questions to reduce tail latency.
+        dynamic_max_tokens = 640 if len(message) > 120 else 448
+
         result = await router.chat(
             messages=messages,
             temperature=0.7,
-            max_tokens=1024,
+            max_tokens=dynamic_max_tokens,
+            timeout=settings.chat_inference_timeout_seconds,
         )
         answer = result.content.strip()
 
@@ -460,9 +466,16 @@ async def run_chat(
                 message_preview=message[:50],
             )
             result = await router.chat(
-                messages=messages,
-                temperature=0.7,
-                max_tokens=2048,
+                messages=[
+                    *messages,
+                    {
+                        "role": "system",
+                        "content": "请直接输出最终回答，不要留空，不要输出思考过程。",
+                    },
+                ],
+                temperature=0.4,
+                max_tokens=448,
+                timeout=settings.chat_inference_timeout_seconds,
             )
             answer = result.content.strip()
 
