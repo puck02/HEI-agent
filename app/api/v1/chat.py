@@ -369,10 +369,11 @@ async def chat_stream(
             )
         except Exception as e:
             log.error("chat_stream_error", error=str(e), user_id=str(current_user.id))
+            err_msg = str(e).strip() or "聊天处理失败，请稍后重试"
             error_event = StreamEvent(
                 event="error",
                 data={
-                    "message": "聊天处理失败，请稍后重试",
+                    "message": err_msg,
                     "session_id": session_id,
                 },
             ).model_dump()
