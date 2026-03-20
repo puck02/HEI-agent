@@ -138,3 +138,26 @@ async def test_chat_stream_emits_progress_then_done(monkeypatch):
     done_lines = [line for line in combined.split("\n") if line.startswith("data: ")]
     done_payload = json.loads(done_lines[-1][6:])
     assert done_payload["response_time_ms"] == 25
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_normalizes_unknown_error(monkeypatch):
+    async def _broken_pipeline(**_kwargs):
+        raise RuntimeError("未知错误")
+
+    monkeypatch.setattr(chat_module, "_run_chat_pipeline", _broken_pipeline)
+
+    req = ChatRequest(message="测试错误")
+    user = SimpleNamespace(id=uuid.uuid4())
+
+    response = await chat_module.chat_stream(req=req, current_user=user, db=object())
+
+    chunks = []
+    async for chunk in response.body_iterator:
+        chunks.append(chunk)
+
+    combined = "".join(chunks)
+    assert "event: error" in combined
+    data_lines = [line for line in combined.split("\n") if line.startswith("data: ")]
+    payload = json.loads(data_lines[-1][6:])
+    assert payload["message"] == "聊天处理失败，请稍后重试"

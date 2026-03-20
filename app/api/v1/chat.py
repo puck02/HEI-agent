@@ -47,6 +47,33 @@ _RAG_KEYWORDS = re.compile(
 )
 
 
+def _normalize_chat_error(exc: Exception) -> str:
+    """Return a user-readable error for chat REST/SSE responses."""
+    fallback = "聊天处理失败，请稍后重试"
+
+    detail: str = ""
+    if isinstance(exc, HTTPException):
+        if isinstance(exc.detail, str):
+            detail = exc.detail.strip()
+        elif isinstance(exc.detail, dict):
+            detail = (
+                str(exc.detail.get("detail") or exc.detail.get("message") or "").strip()
+            )
+        elif exc.detail is not None:
+            detail = str(exc.detail).strip()
+    else:
+        detail = str(exc).strip()
+
+    if detail.lower().startswith("agent error:"):
+        detail = detail[len("agent error:") :].strip()
+
+    if detail.lower() in {"", "unknown", "unknown error", "internal server error", "none", "null"}:
+        return fallback
+    if detail in {"未知错误", "发生错误"}:
+        return fallback
+    return detail
+
+
 async def _build_health_context(db: AsyncSession, user_id: uuid.UUID) -> str:
     """Query recent health entries and format as context string."""
     since = date.today() - timedelta(days=7)
@@ -310,9 +337,11 @@ async def chat(
     try:
         result = await _run_chat_pipeline(req, current_user, db, session_id)
         return ChatResponse(**result)
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("chat_error", error=str(e), user_id=str(current_user.id))
-        raise HTTPException(status_code=500, detail=f"Agent error: {e}")
+        raise HTTPException(status_code=500, detail=_normalize_chat_error(e))
 
 
 @router.post("/stream")
@@ -369,7 +398,7 @@ async def chat_stream(
             )
         except Exception as e:
             log.error("chat_stream_error", error=str(e), user_id=str(current_user.id))
-            err_msg = str(e).strip() or "聊天处理失败，请稍后重试"
+            err_msg = _normalize_chat_error(e)
             error_event = StreamEvent(
                 event="error",
                 data={
