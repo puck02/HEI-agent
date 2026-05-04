@@ -8,12 +8,18 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import asyncpg
-import jwt
+from jose import jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# asyncpg is optional for demo mode
+try:
+    import asyncpg
+    HAS_ASYNCPG = True
+except ImportError:
+    HAS_ASYNCPG = False
 
 from app.config import get_settings
 from app.models.user import User

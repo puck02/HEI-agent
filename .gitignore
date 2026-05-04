@@ -26,6 +26,13 @@ env/
 
 # Qdrant data
 qdrant_data/
+data/qdrant_storage/
+
+# Backups
+backups/
+
+# Node
+node_modules/
 
 # Alembic
 alembic/versions/*.pyc

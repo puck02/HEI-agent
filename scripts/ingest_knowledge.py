@@ -13,8 +13,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.rag.engine import get_rag_engine
-from app.rag.ingest import ingest_directory
+from app.config import get_settings
+from app.rag.engine import get_rag_engine, COLLECTIONS
 
 
 KNOWLEDGE_DIR = Path(__file__).parent.parent / "data" / "knowledge"
@@ -33,30 +33,59 @@ async def main():
     parser.add_argument("--dir", type=str, default=None)
     args = parser.parse_args()
 
+    settings = get_settings()
+    engine = get_rag_engine()
+    
+    print(f"🚀 RAG Engine: {engine.__class__.__name__}")
+    print(f"📁 Knowledge dir: {KNOWLEDGE_DIR}")
+    print()
+
     # Ensure collections exist
-    rag = get_rag_engine()
-    await rag.ensure_collections()
+    await engine.ensure_collections()
 
     if args.collection:
         collections = {args.collection: args.dir or str(COLLECTION_MAP[args.collection])}
     else:
         collections = {k: str(v) for k, v in COLLECTION_MAP.items()}
 
+    total_files = 0
+    total_chunks = 0
+    total_errors = 0
+
     for coll_key, dir_path in collections.items():
         p = Path(dir_path)
         if not p.is_dir():
-            print(f"⚠️ Directory not found: {p}, skipping {coll_key}")
+            print(f"⚠️  Directory not found: {p}, skipping {coll_key}")
             continue
 
         print(f"📚 Ingesting {coll_key} from {p}...")
-        result = await ingest_directory(p, coll_key, category=coll_key)
-        print(f"   ✅ Files: {result['total_files']}, Chunks: {result['total_chunks']}")
-        if result["errors"]:
-            for err in result["errors"]:
-                print(f"   ❌ {err['file']}: {err['error']}")
+        
+        for file_path in sorted(p.iterdir()):
+            suffix = file_path.suffix.lower()
+            if suffix not in {".txt", ".md", ".pdf"}:
+                continue
+            
+            try:
+                n = await engine.ingest_file(
+                    file_path, coll_key,
+                    category=coll_key,
+                    subcategory=file_path.stem,
+                )
+                total_files += 1
+                total_chunks += n
+                print(f"   ✅ {file_path.name}: {n} chunks")
+            except Exception as e:
+                total_errors += 1
+                print(f"   ❌ {file_path.name}: {e}")
 
-    await rag.close()
-    print("\n🎉 Ingestion complete!")
+    await engine.close()
+    
+    print()
+    print(f"🎉 Ingestion complete!")
+    print(f"   📄 Files: {total_files}")
+    print(f"   🧩 Chunks: {total_chunks}")
+    if total_errors:
+        print(f"   ❌ Errors: {total_errors}")
 
 
 if __name__ == "__main__":

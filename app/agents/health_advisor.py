@@ -22,6 +22,7 @@ from app.agents.state import AgentState
 from app.agents.tools import HEALTH_TOOLS, query_health_data, calculate_bmi, get_weather, calculate_water_intake
 from app.utils.json_parser import parse_llm_json
 from app.llm.router import get_llm_router
+from app.config import get_settings
 from app.rag.engine import get_rag_engine
 
 log = structlog.get_logger(__name__)
@@ -224,17 +225,16 @@ async def health_advisor_node(state: AgentState) -> dict:
     Main health advisor agent node with ReAct pattern.
     Processes user message with health context, RAG knowledge, and tool execution.
     """
-    rag_engine = get_rag_engine()
-
     user_msg = state.get("user_message", "")
     user_id = state.get("user_id", "")
     health_ctx = state.get("health_context", "")
     med_ctx = state.get("medication_context", "")
     memory_ctx = state.get("memory_context", {})
 
-    # Retrieve relevant knowledge from RAG
+    # Retrieve relevant knowledge from RAG (stub returns empty in demo mode)
     rag_context = ""
     try:
+        rag_engine = get_rag_engine()
         rag_context = await rag_engine.retrieve_as_context(
             user_msg,
             collections=["health", "tcm"],
@@ -305,21 +305,21 @@ async def generate_daily_advice(
     Returns: {observations, actions, tomorrow_focus, red_flags}
     """
     router = get_llm_router()
-    rag = get_rag_engine()
 
     # Build prompt
     answers_text = json.dumps(today_answers, ensure_ascii=False, indent=2)
     summary_text = json.dumps(summary_7d, ensure_ascii=False, indent=2) if summary_7d else "无"
-
     # Get relevant health knowledge
     symptoms = []
     for key, val in today_answers.items():
         if isinstance(val, (int, float)) and val >= 5:
             symptoms.append(key)
+
     symptom_query = " ".join(symptoms) + " 生活调理建议" if symptoms else "日常健康保养建议"
 
     rag_context = ""
     try:
+        rag = get_rag_engine()
         rag_context = await rag.retrieve_as_context(symptom_query, collections=["health", "tcm"], top_k=3)
     except Exception:
         pass

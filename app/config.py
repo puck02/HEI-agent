@@ -1,5 +1,7 @@
 """
 Application configuration — loads from .env via pydantic-settings.
+
+Demo version: supports SQLite for lightweight deployment.
 """
 
 from __future__ import annotations
@@ -26,19 +28,21 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # ── PostgreSQL ───────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://helagent:helagent_password@localhost:5432/helagent?ssl=disable"
-    database_url_sync: str = "postgresql://helagent:helagent_password@localhost:5432/helagent?sslmode=disable"
+    # ── Database ─────────────────────────────────────────
+    # "sqlite" for demo, "postgresql" for production
+    database_type: str = "sqlite"
+    database_url: str = "sqlite+aiosqlite:///./hei_agent.db"
+    database_url_sync: str = "sqlite:///./hei_agent.db"
 
-    # ── Redis ────────────────────────────────────────────
-    redis_url: str = "redis://localhost:6379/0"
+    # ── Redis (optional for demo) ────────────────────────
+    redis_url: str = ""
 
-    # ── Qdrant ───────────────────────────────────────────
-    qdrant_url: str = "http://localhost:6333"
+    # ── Qdrant (optional for demo) ───────────────────────
+    qdrant_url: str = ""
     qdrant_api_key: Optional[str] = None
 
     # ── JWT ──────────────────────────────────────────────
-    jwt_secret_key: str = "change-this-to-a-random-secret-key-in-production"
+    jwt_secret_key: str = "demo-secret-key-for-testing-only"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 1440  # 24h
     jwt_refresh_token_expire_days: int = 30
@@ -54,6 +58,9 @@ class Settings(BaseSettings):
 
     openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4o-mini"
+
+    dashscope_api_key: Optional[str] = None
+    dashscope_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     llm_request_timeout_seconds: float = 22.0
     chat_pipeline_timeout_seconds: float = 28.0
     chat_inference_timeout_seconds: float = 16.0
@@ -61,8 +68,8 @@ class Settings(BaseSettings):
     chat_history_max_chars: int = 1200
 
     # ── Embedding ────────────────────────────────────────
-    embedding_provider: str = "glm"
-    embedding_model: str = "embedding-3"
+    embedding_provider: str = "dashscope"
+    embedding_model: str = "text-embedding-v4"
 
     # ── RAG ──────────────────────────────────────────────
     rag_chunk_size: int = 800
@@ -79,13 +86,20 @@ class Settings(BaseSettings):
     weather_api_key: Optional[str] = None
     search_api_key: Optional[str] = None
 
-    # ── Push (FCM) ───────────────────────────────────────
+    # ── Push (FCM) — disabled for demo ───────────────────
     fcm_service_account_json: Optional[str] = None
+
+    # ── Demo mode ────────────────────────────────────────
+    demo_mode: bool = True
 
     # ── Helpers ──────────────────────────────────────────
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def is_sqlite(self) -> bool:
+        return self.database_type == "sqlite"
 
     def get_active_llm_providers(self) -> list[dict]:
         """Return list of configured LLM providers in priority order."""

@@ -22,6 +22,7 @@ class ChatResponse(BaseModel):
     model_used: str | None = None
     response_time_ms: int | None = None
     trace: list[dict[str, Any]] = Field(default_factory=list)
+    references: list[dict[str, Any]] | None = None
 
 
 class StreamEvent(BaseModel):

@@ -220,13 +220,15 @@ class LLMRouter:
             f"All LLM providers failed. Last error: {last_error}"
         )
 
+    MAX_EMBED_BATCH = 10  # DashScope / some providers limit batch size
+
     async def embed(
         self,
         texts: list[str],
         *,
         model: str | None = None,
     ) -> list[list[float]]:
-        """Generate embeddings using the configured embedding provider."""
+        """Generate embeddings. Auto-batches for providers with batch limits."""
         settings = get_settings()
         _model = model or f"openai/{settings.embedding_model}"
 
@@ -235,21 +237,28 @@ class LLMRouter:
             "glm": (settings.glm_api_key, settings.glm_base_url),
             "openai": (settings.openai_api_key, None),
             "deepseek": (settings.deepseek_api_key, settings.deepseek_base_url),
+            "dashscope": (settings.dashscope_api_key, settings.dashscope_base_url),
         }
         api_key, api_base = provider_map.get(
             settings.embedding_provider, (settings.glm_api_key, settings.glm_base_url)
         )
 
-        call_kwargs: dict[str, Any] = {
-            "model": _model,
-            "input": texts,
-            "api_key": api_key,
-        }
-        if api_base:
-            call_kwargs["api_base"] = api_base
+        all_embeddings: list[list[float]] = []
+        for i in range(0, len(texts), self.MAX_EMBED_BATCH):
+            batch = texts[i:i + self.MAX_EMBED_BATCH]
+            call_kwargs: dict[str, Any] = {
+                "model": _model,
+                "input": batch,
+                "api_key": api_key,
+                "encoding_format": "float",
+            }
+            if api_base:
+                call_kwargs["api_base"] = api_base
 
-        resp = await aembedding(**call_kwargs)
-        return [item["embedding"] for item in resp.data]
+            resp = await aembedding(**call_kwargs)
+            all_embeddings.extend([item["embedding"] for item in resp.data])
+
+        return all_embeddings
 
     def _ordered_providers(self, preferred: str | None) -> list[ProviderConfig]:
         """Return providers list with preferred one moved to front."""

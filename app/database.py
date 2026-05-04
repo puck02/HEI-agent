@@ -1,5 +1,7 @@
 """
-Async SQLAlchemy engine and session factory for PostgreSQL.
+Async SQLAlchemy engine and session factory.
+
+Demo version: supports both SQLite and PostgreSQL.
 """
 
 from __future__ import annotations
@@ -19,7 +21,14 @@ from app.config import get_settings
 
 settings = get_settings()
 
-if settings.debug:
+# SQLite doesn't need ssl or pool settings
+if settings.is_sqlite:
+    engine = create_async_engine(
+        settings.database_url,
+        echo=False,
+        poolclass=NullPool,
+    )
+elif settings.debug:
     engine = create_async_engine(
         settings.database_url,
         echo=settings.debug,

@@ -1,16 +1,18 @@
 """
 Chat API — unified agent conversation endpoint.
 
-Optimized fast-path: single LLM call with all context pre-loaded.
+Uses the new Pipeline architecture:
+- ContextAssembler: loads all data sources in parallel
+- FastPipeline: single LLM call with all context pre-loaded
+- AgentPipeline: full LangGraph orchestration (via orchestrator.run_agent)
+
 Smart retrieval: always fetches long-term memory, conditionally fetches RAG knowledge.
-No intent classification → no ReAct → no reflection → fast response.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -19,32 +21,21 @@ from datetime import date, timedelta
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.agents.orchestrator import run_chat
+from app.agents.orchestrator import run_agent
 from app.auth.router import get_current_user
 from app.config import get_settings
+from app.context.assembler import ContextAssembler
 from app.database import async_session_factory, get_db
 from app.memory.manager import get_memory_manager
-from app.models.health_data import HealthEntry, QuestionResponse
-from app.models.medication import Medication, MedicationCourse
 from app.models.user import User
-from app.rag.engine import get_rag_engine
+from app.pipelines.base import AgentContext
+from app.pipelines.fast_pipeline import FastPipeline
 from app.schemas.chat import ChatRequest, ChatResponse, StreamEvent
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 log = structlog.get_logger(__name__)
-
-# Keywords that trigger RAG knowledge base retrieval
-_RAG_KEYWORDS = re.compile(
-    r"(健康|症状|疼痛|头痛|失眠|睡眠|血压|血糖|心率|体重|运动|饮食|营养|"
-    r"药|用药|服药|剂量|副作用|中医|养生|穴位|食疗|调理|"
-    r"疾病|感冒|发烧|咳嗽|过敏|炎症|焦虑|抑郁|压力|疲劳|"
-    r"维生素|蛋白质|碳水|脂肪|膳食|忌口|禁忌|怎么办|怎么治|如何缓解)",
-    re.IGNORECASE,
-)
 
 
 def _normalize_chat_error(exc: Exception) -> str:
@@ -65,62 +56,13 @@ def _normalize_chat_error(exc: Exception) -> str:
         detail = str(exc).strip()
 
     if detail.lower().startswith("agent error:"):
-        detail = detail[len("agent error:") :].strip()
+        detail = detail[len("agent error:"):].strip()
 
     if detail.lower() in {"", "unknown", "unknown error", "internal server error", "none", "null"}:
         return fallback
     if detail in {"未知错误", "发生错误"}:
         return fallback
     return detail
-
-
-async def _build_health_context(db: AsyncSession, user_id: uuid.UUID) -> str:
-    """Query recent health entries and format as context string."""
-    since = date.today() - timedelta(days=7)
-    stmt = (
-        select(HealthEntry)
-        .where(HealthEntry.user_id == user_id, HealthEntry.entry_date >= since)
-        .options(selectinload(HealthEntry.question_responses))
-        .order_by(HealthEntry.entry_date.desc())
-    )
-    result = await db.execute(stmt)
-    entries = result.scalars().all()
-    if not entries:
-        return ""
-
-    lines = []
-    for entry in entries:
-        day = entry.entry_date.isoformat()
-        answers = "; ".join(
-            f"{r.question_id}={r.answer_label or r.answer_value}"
-            for r in entry.question_responses
-        )
-        lines.append(f"{day}: {answers}")
-    return "用户最近7天健康日报:\n" + "\n".join(lines)
-
-
-async def _build_medication_context(db: AsyncSession, user_id: uuid.UUID) -> str:
-    """Query active medications and format as context string."""
-    stmt = (
-        select(Medication)
-        .where(Medication.user_id == user_id)
-        .options(selectinload(Medication.courses))
-    )
-    result = await db.execute(stmt)
-    meds = result.scalars().all()
-    if not meds:
-        return ""
-
-    lines = []
-    for med in meds:
-        courses_str = ""
-        if med.courses:
-            active = [c for c in med.courses if c.status == "active"]
-            if active:
-                c = active[0]
-                courses_str = f" (剂量:{c.dose_text or '未知'}, 频次:{c.frequency_text or '未知'})"
-        lines.append(f"- {med.name}{courses_str}")
-    return "用户当前用药:\n" + "\n".join(lines)
 
 
 async def _background_memorize(
@@ -132,7 +74,6 @@ async def _background_memorize(
     """Background task: save to short-term memory and extract long-term insights."""
     try:
         memory_mgr = get_memory_manager()
-        # Save to Redis short-term memory
         await memory_mgr.short_term.add_message(session_id, "user", user_message)
         await memory_mgr.short_term.add_message(session_id, "assistant", assistant_response)
     except Exception as e:
@@ -162,7 +103,7 @@ async def _run_chat_pipeline(
     session_id: str,
     progress_cb: Callable[[dict], Awaitable[None]] | None = None,
 ) -> dict:
-    """Run chat pipeline and optionally emit progress events."""
+    """Run chat pipeline using the new Pipeline architecture."""
     started_at = time.perf_counter()
     settings = get_settings()
     trace: list[dict] = []
@@ -190,100 +131,41 @@ async def _run_chat_pipeline(
 
     await _emit("context", "正在加载健康数据、用药和记忆")
 
-    # Long-term memory is always fetched. RAG is conditional by keyword hit.
-    need_rag = bool(_RAG_KEYWORDS.search(req.message))
-    need_heavy_context = need_rag or len(req.message.strip()) > 6
-
-    async def _fetch_long_term_memories() -> list[str]:
-        try:
-            result = await memory_mgr.recall(
-                db=db,
-                user_id=current_user.id,
-                session_id=session_id,
-                query=req.message,
-                top_k=5,
-            )
-            return result.get("relevant_memories", [])
-        except Exception as e:
-            log.warning("long_term_recall_failed", error=str(e))
-            return []
-
-    async def _fetch_rag_context() -> str:
-        if not need_rag:
-            return ""
-        try:
-            rag = get_rag_engine()
-            return await rag.retrieve_as_context(
-                query=req.message,
-                top_k=3,
-            )
-        except Exception as e:
-            log.warning("rag_retrieval_failed", error=str(e))
-            return ""
-
-    async def _fetch_health_context() -> str:
-        if not need_heavy_context:
-            return ""
-        return await _build_health_context(db, current_user.id)
-
-    async def _fetch_medication_context() -> str:
-        if not need_heavy_context:
-            return ""
-        return await _build_medication_context(db, current_user.id)
-
-    health_ctx, med_ctx, long_term_memories, knowledge_ctx = await asyncio.gather(
-        _fetch_health_context(),
-        _fetch_medication_context(),
-        _fetch_long_term_memories(),
-        _fetch_rag_context(),
+    # Use ContextAssembler to load all data sources in parallel
+    assembler = ContextAssembler(db=db)
+    ctx = AgentContext(
+        user_id=str(current_user.id),
+        session_id=session_id,
+        user_message=req.message,
     )
-
-    conversation_history = ""
-    try:
-        # Keep short history compact to lower prompt size and improve latency.
-        conversation_history = await memory_mgr.short_term.get_formatted_history(
-            session_id,
-            max_messages=settings.chat_history_max_messages,
-            max_chars=settings.chat_history_max_chars,
-        )
-    except Exception:
-        pass
+    await ctx.load(assembler)
 
     log.info(
         "chat_context_loaded",
         user_id=str(current_user.id),
-        has_health=bool(health_ctx),
-        has_med=bool(med_ctx),
-        long_term_count=len(long_term_memories),
-        has_rag=bool(knowledge_ctx),
-        rag_triggered=need_rag,
-        history_chars=len(conversation_history),
+        has_health=bool(ctx.health_context),
+        has_med=bool(ctx.medication_context),
+        long_term_count=len(ctx.long_term_memories),
+        has_rag=bool(ctx.knowledge_context),
+        history_chars=len(ctx.conversation_history),
     )
 
     await _emit(
         "context_ready",
         "上下文加载完成，正在推理",
         {
-            "has_health": bool(health_ctx),
-            "has_medication": bool(med_ctx),
-            "long_term_count": len(long_term_memories),
-            "rag_used": bool(knowledge_ctx),
+            "has_health": bool(ctx.health_context),
+            "has_medication": bool(ctx.medication_context),
+            "long_term_count": len(ctx.long_term_memories),
+            "rag_used": bool(ctx.knowledge_context),
         },
     )
 
     try:
-        # Tighten end-to-end deadline so user gets faster fallback instead of long blocking.
+        # Use FastPipeline for the fast path
+        pipeline = FastPipeline(assembler=assembler)
         result = await asyncio.wait_for(
-            run_chat(
-                user_id=str(current_user.id),
-                session_id=session_id,
-                message=req.message,
-                health_context=health_ctx,
-                medication_context=med_ctx,
-                conversation_history=conversation_history,
-                long_term_memories=long_term_memories,
-                knowledge_context=knowledge_ctx,
-            ),
+            pipeline.execute(ctx),
             timeout=settings.chat_pipeline_timeout_seconds,
         )
     except asyncio.TimeoutError:
@@ -322,6 +204,7 @@ async def _run_chat_pipeline(
         "model_used": result.get("model_used"),
         "response_time_ms": _elapsed_ms(started_at),
         "trace": trace,
+        "references": ctx.knowledge_refs,
     }
 
 
@@ -390,6 +273,7 @@ async def chat_stream(
                 "agent_used": result.get("agent_used"),
                 "model_used": result.get("model_used"),
                 "response_time_ms": result.get("response_time_ms"),
+                "references": result.get("references", []),
             }
             done_event = StreamEvent(event="done", data=done_payload).model_dump()
             yield (

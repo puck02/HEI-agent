@@ -7,12 +7,18 @@ from __future__ import annotations
 import asyncio
 import uuid
 
-import asyncpg
-import jwt
+from jose import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# asyncpg is optional for demo mode (SQLite doesn't use it)
+try:
+    import asyncpg
+    HAS_ASYNCPG = True
+except ImportError:
+    HAS_ASYNCPG = False
 
 from app.auth.schemas import (
     LoginRequest,
@@ -158,9 +164,9 @@ async def me(current_user=Depends(get_current_user)):
 def _is_transient_db_error(exc: Exception) -> bool:
     if isinstance(exc, HTTPException):
         return False
-    if isinstance(exc, asyncpg.PostgresConnectionError):
+    if HAS_ASYNCPG and isinstance(exc, asyncpg.PostgresConnectionError):
         return True
-    if isinstance(exc, DBAPIError) and isinstance(getattr(exc, "orig", None), asyncpg.PostgresConnectionError):
+    if HAS_ASYNCPG and isinstance(exc, DBAPIError) and isinstance(getattr(exc, "orig", None), asyncpg.PostgresConnectionError):
         return True
     text = str(exc).lower()
     markers = (
