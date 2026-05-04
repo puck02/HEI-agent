@@ -1,8 +1,12 @@
 # HEl Agent — AI 健康管家后端
 
-> HElDairy 的多 Agent 智能后端系统，基于 LangGraph 构建
+> HElDairy 的 Agent 智能后端系统，基于 LangGraph 构建
 > 
 > **v2 重构**: Pipeline 模式 + 可插拔架构（2026-05-03）
+>
+## 演示
+<img width="1014" height="1508" alt="QQ_1777889368245" src="https://github.com/user-attachments/assets/9ea79459-5eeb-47df-9228-a974d362a134" />
+
 
 ## 架构概览
 
