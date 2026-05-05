@@ -156,18 +156,51 @@ def create_app() -> FastAPI:
         body = await request.json()
         message = body.get("message", "")
         session_id = body.get("session_id", "demo_session")
-        
+
         from app.agent.chat_agent import ChatAgent
+        from app.memory.session_store import get_session_store
+
+        store = get_session_store()
+
+        # Auto-create session if it doesn't exist yet
+        if not store.get_session(session_id):
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc).isoformat()
+            store._sessions[session_id] = {
+                "session_id": session_id,
+                "title": "新对话",
+                "created_at": now,
+                "updated_at": now,
+                "messages": [],
+            }
+
+        # Get conversation history from session store
+        raw_history = store.get_messages(session_id)
+        conversation_history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in raw_history
+        ]
+
+        # Save user message to session
+        store.add_message(session_id, "user", message)
+
         agent = ChatAgent()
         result = await agent.chat(
             user_id="demo_user",
             session_id=session_id or "demo_session",
             message=message,
+            conversation_history=conversation_history,
             single_round=False,
         )
+
+        # Save assistant response to session
+        answer_text = result.get("answer", "")
+        if answer_text:
+            store.add_message(session_id, "assistant", answer_text)
+
         return {
-            "response": result["answer"],
-            "answer": result["answer"],
+            "response": answer_text,
+            "answer": answer_text,
             "session_id": session_id or "demo_session",
             "tool_calls_made": result.get("tool_calls_made", []),
             "latency_ms": result.get("latency_ms", 0),
