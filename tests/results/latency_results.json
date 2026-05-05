@@ -1,0 +1,84 @@
+{
+  "samples": [
+    {
+      "category": "rag",
+      "message": "高血压怎么预防？",
+      "latency_ms": 1634.78
+    },
+    {
+      "category": "rag",
+      "message": "阿莫西林的副作用是什么？",
+      "latency_ms": 1440.16
+    },
+    {
+      "category": "rag",
+      "message": "枸杞有什么好处？",
+      "latency_ms": 1285.9
+    },
+    {
+      "category": "rag",
+      "message": "每天应该运动多久？",
+      "latency_ms": 2908.64
+    },
+    {
+      "category": "tool",
+      "message": "帮我查一下我现在在吃什么药",
+      "latency_ms": 1455.19
+    },
+    {
+      "category": "tool",
+      "message": "看看我最近的健康记录",
+      "latency_ms": 1688.77
+    },
+    {
+      "category": "tool",
+      "message": "搜索一下我的过敏历史",
+      "latency_ms": 2708.49
+    },
+    {
+      "category": "chitchat",
+      "message": "你好呀Kitty",
+      "latency_ms": 1740.08
+    },
+    {
+      "category": "chitchat",
+      "message": "今天天气怎么样？",
+      "latency_ms": 1919.77
+    },
+    {
+      "category": "chitchat",
+      "message": "你有什么功能？",
+      "latency_ms": 5312.23
+    }
+  ],
+  "categorized": {
+    "rag": {
+      "p50": 1634.78,
+      "p95": 2908.64,
+      "p99": 2908.64,
+      "mean": 1817.37,
+      "samples": 4
+    },
+    "tool": {
+      "p50": 1688.77,
+      "p95": 2708.49,
+      "p99": 2708.49,
+      "mean": 1950.81,
+      "samples": 3
+    },
+    "chitchat": {
+      "p50": 1919.77,
+      "p95": 5312.23,
+      "p99": 5312.23,
+      "mean": 2990.69,
+      "samples": 3
+    }
+  },
+  "overall": {
+    "p50": 1740.08,
+    "p95": 5312.23,
+    "p99": 5312.23,
+    "mean": 2209.4,
+    "samples": 10
+  }
+}

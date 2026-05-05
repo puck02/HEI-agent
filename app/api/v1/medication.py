@@ -1,7 +1,7 @@
 """
 Medication API — NLP parse and info summary endpoints.
 
-These endpoints replace the Android DeepSeek direct calls for medication features.
+Refactored to use LLM router directly instead of old medication_agent.
 """
 
 from __future__ import annotations
@@ -9,12 +9,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.medication_agent import (
-    generate_med_info_summary,
-    parse_medication_nlp,
-)
 from app.auth.router import get_current_user
 from app.database import get_db
+from app.llm.router import get_llm_router
 from app.models.user import User
 from app.schemas.medication import (
     MedInfoSummaryRequest,
@@ -33,19 +30,31 @@ async def parse_nlp(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Parse natural language medication event — replaces Android MedicationNlpParser."""
+    """Parse natural language medication event."""
     try:
-        result = await parse_medication_nlp(
-            raw_text=req.raw_text,
-            current_meds=req.current_meds,
-            active_courses=req.active_courses_summary,
+        router = get_llm_router()
+        prompt = (
+            f"请解析以下用户输入的用药信息：\n"
+            f"原文：{req.raw_text}\n"
+            f"当前在用药品：{req.current_meds}\n"
+            f"当前疗程：{req.active_courses_summary or '无'}\n"
+            f"请返回 JSON，包含 mentioned_meds(提及的药品列表), actions(操作列表), questions(追问，最多2个)。"
+            f"actions 每项包含 action_type(add_med/start_course/pause_course/end_course/update_course/noop), med_name, course_fields。"
         )
-        actions = [MedAction(**a) for a in result.get("actions", [])]
+        result = await router.chat(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=1024,
+            response_format={"type": "json_object"},
+        )
+        import json
+        data = json.loads(result.content)
+        actions = [MedAction(**a) for a in data.get("actions", [])]
         return MedNlpParseResponse(
-            mentioned_meds=result.get("mentioned_meds", []),
+            mentioned_meds=data.get("mentioned_meds", []),
             actions=actions,
-            questions=result.get("questions", []),
-            model=result.get("model"),
+            questions=data.get("questions", []),
+            model=result.model,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"NLP parse failed: {e}")
@@ -57,18 +66,30 @@ async def info_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Extract medication info summary — replaces Android MedicationInfoSummaryGenerator."""
+    """Extract medication info summary."""
     try:
-        result = await generate_med_info_summary(
-            text=req.text,
-            med_name=req.med_name,
+        router = get_llm_router()
+        prompt = (
+            f"请从以下药品信息中提取摘要：\n"
+            f"药品名：{req.med_name or '未知'}\n"
+            f"文本：{req.text}\n"
+            f"请返回 JSON，包含 name_candidates(名称候选), dosage_summary(用法用量摘要), "
+            f"cautions_summary(注意事项摘要), adverse_summary(不良反应摘要)。"
         )
+        result = await router.chat(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=1024,
+            response_format={"type": "json_object"},
+        )
+        import json
+        data = json.loads(result.content)
         return MedInfoSummaryResponse(
-            name_candidates=result.get("name_candidates", []),
-            dosage_summary=result.get("dosage_summary"),
-            cautions_summary=result.get("cautions_summary"),
-            adverse_summary=result.get("adverse_summary"),
-            model=result.get("model"),
+            name_candidates=data.get("name_candidates", []),
+            dosage_summary=data.get("dosage_summary"),
+            cautions_summary=data.get("cautions_summary"),
+            adverse_summary=data.get("adverse_summary"),
+            model=result.model,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Info summary failed: {e}")

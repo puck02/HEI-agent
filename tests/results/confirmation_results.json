@@ -1,0 +1,158 @@
+{
+  "total": 15,
+  "confirmed": 15,
+  "skipped": 0,
+  "details": [
+    {
+      "message": "帮我添加阿莫西林，每天三次，一次500mg",
+      "expected_tool": "add_medication",
+      "pending_tool": "add_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:add_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我添加药品「阿莫西林」，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "加一个布洛芬，疼的时候吃200mg",
+      "expected_tool": "add_medication",
+      "pending_tool": "add_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:add_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我添加药品「布洛芬」，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "新增药物：二甲双胍 850mg 每天两次随餐",
+      "expected_tool": "add_medication",
+      "pending_tool": "add_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:add_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我添加药品「药物：二甲双胍」，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "把维生素D加到我的药里吧，800IU每天",
+      "expected_tool": "add_medication",
+      "pending_tool": "add_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:add_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我添加药品「我的药里吧」，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "阿莫西林的剂量帮我改成250mg",
+      "expected_tool": "update_medication",
+      "pending_tool": "update_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:update_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我修改药品 (ID: )，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "更新布洛芬用药频率，改成一天两次",
+      "expected_tool": "update_medication",
+      "pending_tool": "update_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:update_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我修改药品 (ID: )，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "二甲双胍改成缓释片，每晚一次1000mg",
+      "expected_tool": "update_medication",
+      "pending_tool": "update_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:update_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我修改药品 (ID: )，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "删除布洛芬这个药",
+      "expected_tool": "remove_medication",
+      "pending_tool": "remove_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:remove_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我删除药品 (ID: )，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "不用吃阿莫西林了，帮我删掉",
+      "expected_tool": "remove_medication",
+      "pending_tool": "remove_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:remove_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我删除药品 (ID: )，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "把二甲双胍从药品清单里移除",
+      "expected_tool": "remove_medication",
+      "pending_tool": "remove_medication",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:remove_medication"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我删除药品 (ID: )，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "记录一下今天血压138/88，心率72",
+      "expected_tool": "log_health",
+      "pending_tool": "log_health",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:log_health"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我记录健康数据，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "记一笔：空腹血糖5.8，今早测的",
+      "expected_tool": "log_health",
+      "pending_tool": "log_health",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:log_health"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我记录健康数据，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "今天体重71.5公斤，体脂率22%，帮我记录",
+      "expected_tool": "log_health",
+      "pending_tool": "log_health",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:log_health"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我记录健康数据，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "记住我母亲有乳腺癌病史，45岁确诊的",
+      "expected_tool": "remember",
+      "pending_tool": "remember",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:remember"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我记住「」，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    },
+    {
+      "message": "帮我记一下：上周开始膝盖偶尔疼，上下楼梯明显",
+      "expected_tool": "remember",
+      "pending_tool": "remember",
+      "needs_confirmation": true,
+      "tool_calls": [
+        "pending:remember"
+      ],
+      "answer_preview": "🎀 Kitty 想确认一下：你要我记住「」，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+    }
+  ],
+  "confirmation_rate_pct": 100.0
+}

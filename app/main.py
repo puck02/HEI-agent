@@ -2,7 +2,7 @@
 hel-agent — FastAPI application entrypoint.
 
 AI Health Agent Backend for HElDairy.
-Demo version: SQLite + DeepSeek, no external dependencies.
+Naive Agent Mode: single ChatAgent with ReAct + Tools architecture.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             log.warning("qdrant_init_failed", error=str(e))
     else:
-        log.info("qdrant_skipped", reason="demo_mode")
+        log.info("qdrant_skipped", reason="no_qdrant_url")
 
     # Init LLM Router
     from app.llm.router import get_llm_router
@@ -68,46 +68,14 @@ async def lifespan(app: FastAPI):
     # ── Shutdown ─────────────────────────────────────────
     log.info("shutting_down")
 
-    # Close Redis/short-term memory (skip if not configured)
-    if settings.redis_url:
-        try:
-            from app.memory.short_term import get_short_term_memory
-            await get_short_term_memory().close()
-        except Exception:
-            pass
-
-    # Close notification queue (skip in demo)
-    if not settings.demo_mode:
-        try:
-            from app.notifications.queue import get_notification_queue
-            await get_notification_queue().close()
-        except Exception:
-            pass
-
-    # Close FCM (skip in demo)
-    if not settings.demo_mode and settings.fcm_service_account_json:
-        try:
-            from app.push.fcm import get_push_service
-            await get_push_service().close()
-        except Exception:
-            pass
-
-    # Close Qdrant (skip in demo)
-    if not settings.demo_mode and settings.qdrant_url:
-        try:
-            from app.rag.engine import get_rag_engine
-            await get_rag_engine().close()
-        except Exception:
-            pass
-
 
 def create_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(
         title="HEl Agent API",
-        description="AI Health Agent Backend — Multi-Agent with LLM Router, RAG, Reflection (Demo Mode)",
-        version="0.2.0-demo",
+        description="AI Health Agent Backend — Naive Agent Mode with ReAct + Tools",
+        version="0.3.0-naive",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
@@ -151,19 +119,12 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(sessions_router, prefix="/api/v1")
 
-    # Optional routers (may have external dependencies)
+    # Medication router
     try:
         from app.api.v1.medication import router as medication_router
         app.include_router(medication_router, prefix="/api/v1")
     except Exception as e:
         log.warning("medication_router_skipped", error=str(e))
-
-    if not settings.demo_mode:
-        try:
-            from app.api.v1.sync import router as sync_router
-            app.include_router(sync_router, prefix="/api/v1")
-        except Exception as e:
-            log.warning("sync_router_skipped", error=str(e))
 
     # ── Health Check ─────────────────────────────────────
     @app.get("/health", tags=["system"])
@@ -174,6 +135,7 @@ def create_app() -> FastAPI:
             "status": "ok",
             "app": settings.app_name,
             "env": settings.app_env,
+            "mode": "naive-agent",
             "demo_mode": settings.demo_mode,
             "database": settings.database_type,
             "llm_providers": router.get_status(),
@@ -183,86 +145,17 @@ def create_app() -> FastAPI:
     async def root():
         return {
             "name": "HEl Agent API",
-            "version": "0.2.0-demo",
+            "version": "0.3.0-naive",
             "docs": "/docs",
             "demo_mode": settings.demo_mode,
+            "architecture": "Naive Agent Mode — ReAct + Tools",
             "features": [
-                "Pipeline Architecture (FastPipeline + AgentPipeline)",
-                "RAGDecider (3-layer strategy)",
-                "ReflectionPolicy (pluggable scoring)",
-                "Multi-Provider LLM Router",
+                "ChatAgent (ReAct while-loop)",
+                "12 AI Tools (7 read + 5 write)",
+                "Hybrid Memory (Qdrant + BM25 + RRF + Rerank)",
+                "Service Layer (single data entry point)",
+                "LLM Router with auto-failover",
             ],
-        }
-
-    # ── Demo Chat (no auth required) ───────────────────
-    @app.post("/api/demo/chat", tags=["demo"])
-    async def demo_chat(request: Request):
-        """Demo chat endpoint — no authentication required."""
-        from app.llm.router import get_llm_router
-        from app.rag.decider import RAGDecider
-        from app.agents.router import IntentRouter
-        from app.memory.session_store import get_session_store
-        
-        body = await request.json()
-        message = body.get("message", "")
-        session_id = body.get("session_id")
-        
-        if not message:
-            return {"error": "message is required"}
-        
-        router = get_llm_router()
-        intent_router = IntentRouter()
-        rag_decider = RAGDecider()
-        
-        # Classify intent
-        intent = await intent_router.classify_intent(message)
-        
-        # Check if RAG is needed
-        need_rag = await rag_decider.should_retrieve(message, intent)
-        
-        # Inject RAG context if needed
-        rag_context = ""
-        references: list[dict] = []
-        if need_rag:
-            from app.rag.engine import get_rag_engine
-            rag_engine = get_rag_engine()
-            rag_context, references = await rag_engine.retrieve_with_refs(
-                query=message,
-                top_k=3,
-            )
-            if rag_context:
-                log.info("demo_rag_injected", query=message[:50], refs=len(references))
-        
-        # Build system prompt
-        system_prompt = "你是「Kitty 健康管家 🎀」，一个专业的 AI 私人健康医生。请用温暖、专业的语气回答用户问题。"
-        if rag_context:
-            system_prompt += f"\n\n请参考以下知识库内容回答，并在回答中引用相关知识：\n{rag_context}"
-        
-        # Generate response
-        result = await router.chat(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message},
-            ],
-            temperature=0.7,
-            max_tokens=500,
-        )
-        
-        # Save messages to session if session_id provided
-        if session_id:
-            store = get_session_store()
-            store.add_message(session_id, "user", message)
-            store.add_message(session_id, "assistant", result.content)
-        
-        return {
-            "response": result.content,
-            "intent": intent,
-            "need_rag": need_rag,
-            "references": references,
-            "provider": result.provider,
-            "model": result.model,
-            "latency_ms": round(result.latency_ms, 1),
-            "tokens": result.usage,
         }
 
     return app

@@ -1,0 +1,12 @@
+[
+  {"query": "用户对什么药物过敏？", "expected_memory_keywords": ["青霉素", "皮疹", "呼吸困难"]},
+  {"query": "用户有什么运动习惯？", "expected_memory_keywords": ["跑步", "健身房", "爬山", "散步"]},
+  {"query": "用户在吃什么药？", "expected_memory_keywords": ["阿莫西林", "布洛芬", "维生素D"]},
+  {"query": "用户家族有什么遗传病史？", "expected_memory_keywords": ["高血压", "糖尿病", "骨质疏松", "阿尔茨海默", "胃癌"]},
+  {"query": "用户的睡眠情况怎么样？", "expected_memory_keywords": ["11点", "7点", "失眠", "8小时"]},
+  {"query": "用户最近一次体检是什么时候？结果如何？", "expected_memory_keywords": ["2024年3月", "脂肪肝", "维生素D"]},
+  {"query": "用户对海鲜过敏吗？具体什么症状？", "expected_memory_keywords": ["海鲜", "虾", "蟹", "荨麻疹", "半小时"]},
+  {"query": "用户的BMI是多少？", "expected_memory_keywords": ["175", "72", "23.5", "BMI"]},
+  {"query": "用户平时饮食有什么偏好吗？", "expected_memory_keywords": ["低盐", "低脂", "蒸煮", "绿茶", "2升水"]},
+  {"query": "用户之前住过院吗？什么原因？", "expected_memory_keywords": ["支气管炎", "住院", "2024年1月", "5天"]}
+]

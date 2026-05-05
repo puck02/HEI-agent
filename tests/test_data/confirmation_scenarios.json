@@ -1,0 +1,17 @@
+[
+  {"message": "帮我添加阿莫西林，每天三次，一次500mg", "expected_tool": "add_medication", "should_confirm": true},
+  {"message": "加一个布洛芬，疼的时候吃200mg", "expected_tool": "add_medication", "should_confirm": true},
+  {"message": "新增药物：二甲双胍 850mg 每天两次随餐", "expected_tool": "add_medication", "should_confirm": true},
+  {"message": "把维生素D加到我的药里吧，800IU每天", "expected_tool": "add_medication", "should_confirm": true},
+  {"message": "阿莫西林的剂量帮我改成250mg", "expected_tool": "update_medication", "should_confirm": true},
+  {"message": "更新布洛芬用药频率，改成一天两次", "expected_tool": "update_medication", "should_confirm": true},
+  {"message": "二甲双胍改成缓释片，每晚一次1000mg", "expected_tool": "update_medication", "should_confirm": true},
+  {"message": "删除布洛芬这个药", "expected_tool": "remove_medication", "should_confirm": true},
+  {"message": "不用吃阿莫西林了，帮我删掉", "expected_tool": "remove_medication", "should_confirm": true},
+  {"message": "把二甲双胍从药品清单里移除", "expected_tool": "remove_medication", "should_confirm": true},
+  {"message": "记录一下今天血压138/88，心率72", "expected_tool": "log_health", "should_confirm": true},
+  {"message": "记一笔：空腹血糖5.8，今早测的", "expected_tool": "log_health", "should_confirm": true},
+  {"message": "今天体重71.5公斤，体脂率22%，帮我记录", "expected_tool": "log_health", "should_confirm": true},
+  {"message": "记住我母亲有乳腺癌病史，45岁确诊的", "expected_tool": "remember", "should_confirm": true},
+  {"message": "帮我记一下：上周开始膝盖偶尔疼，上下楼梯明显", "expected_tool": "remember", "should_confirm": true}
+]

@@ -1,0 +1,22 @@
+[
+  {"content": "用户对青霉素过敏，服用后会出现全身皮疹和呼吸困难", "type": "allergy", "importance": 1.0},
+  {"content": "用户对海鲜（虾、蟹、贝类）过敏，食用后半小时内会起荨麻疹", "type": "allergy", "importance": 1.0},
+  {"content": "用户每天早上7点起床，跑步30分钟，已经坚持了3年", "type": "habit", "importance": 0.7},
+  {"content": "用户2023年5月体检发现轻度脂肪肝，医生建议控制饮食和增加运动", "type": "medical_history", "importance": 0.9},
+  {"content": "用户父亲有高血压和2型糖尿病史，母亲有骨质疏松", "type": "family_history", "importance": 0.85},
+  {"content": "用户目前每天服用阿莫西林500mg，每日三次，用于治疗呼吸道感染", "type": "medication", "importance": 0.95},
+  {"content": "用户每天服用布洛芬200mg，每天一次，用于缓解关节疼痛", "type": "medication", "importance": 0.9},
+  {"content": "用户偏好低盐低脂饮食，不吃辣，喜欢蒸煮食物", "type": "diet_preference", "importance": 0.6},
+  {"content": "用户每天晚上11点睡觉，早上7点起床，睡眠质量一般，偶尔失眠", "type": "sleep_habit", "importance": 0.7},
+  {"content": "用户每周去健身房3次，主要做力量训练和有氧运动", "type": "exercise", "importance": 0.65},
+  {"content": "用户2024年1月曾因感冒引发支气管炎，住院治疗5天", "type": "medical_history", "importance": 0.8},
+  {"content": "用户每半年进行一次体检，最近一次体检在2024年3月", "type": "medical_visit", "importance": 0.75},
+  {"content": "用户有季节性过敏性鼻炎，每年春季发作，使用氯雷他定控制症状", "type": "allergy", "importance": 0.85},
+  {"content": "用户血型为O型，RH阳性", "type": "medical_info", "importance": 0.9},
+  {"content": "用户每天喝2升水，不喝含糖饮料，偶尔喝绿茶", "type": "diet_preference", "importance": 0.55},
+  {"content": "用户2023年12月接种了流感疫苗和新冠加强针", "type": "medical_history", "importance": 0.7},
+  {"content": "用户身高175cm，体重72kg，BMI约23.5", "type": "medical_info", "importance": 0.8},
+  {"content": "用户外婆有阿尔茨海默病史，外公因胃癌去世", "type": "family_history", "importance": 0.75},
+  {"content": "用户每天午餐后散步20分钟，周末喜欢爬山", "type": "habit", "importance": 0.6},
+  {"content": "用户目前在服用维生素D补充剂，每天800IU，因为体检发现维生素D偏低", "type": "medication", "importance": 0.7}
+]
