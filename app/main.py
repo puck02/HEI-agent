@@ -150,6 +150,16 @@ def create_app() -> FastAPI:
         log.warning("medication_router_skipped", error=str(e))
 
     # ── Demo Chat (no auth) ──────────────────────────────
+    # Singleton ChatAgent so tool confirmation pending state persists across requests
+    _demo_chat_agent: "ChatAgent | None" = None
+
+    def _get_demo_chat_agent() -> "ChatAgent":
+        nonlocal _demo_chat_agent
+        if _demo_chat_agent is None:
+            from app.agent.chat_agent import ChatAgent
+            _demo_chat_agent = ChatAgent()
+        return _demo_chat_agent
+
     @app.post("/api/demo/chat", tags=["demo"])
     async def demo_chat(request: Request):
         """Demo chat endpoint — no authentication required."""
@@ -184,7 +194,7 @@ def create_app() -> FastAPI:
         # Save user message to session
         store.add_message(session_id, "user", message)
 
-        agent = ChatAgent()
+        agent = _get_demo_chat_agent()
         result = await agent.chat(
             user_id="demo_user",
             session_id=session_id or "demo_session",

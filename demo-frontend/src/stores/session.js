@@ -1,12 +1,44 @@
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import * as api from '../api'
 
+const SESSION_STORAGE_KEY = 'hei-session-state'
+
+function loadSessionState() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return {
+        sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+        currentSessionId: parsed.currentSessionId || null,
+      }
+    }
+  } catch {}
+  return { sessions: [], currentSessionId: null }
+}
+
+const persisted = loadSessionState()
+
 const state = reactive({
-  sessions: [],
-  currentSessionId: null,
+  sessions: persisted.sessions,
+  currentSessionId: persisted.currentSessionId,
   loading: false,
   sidebarVisible: false,
 })
+
+// Persist session state to localStorage on changes
+watch(
+  () => ({
+    sessions: [...state.sessions],
+    currentSessionId: state.currentSessionId,
+  }),
+  (val) => {
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(val))
+    } catch {}
+  },
+  { deep: true }
+)
 
 export function useSessionStore() {
   return {

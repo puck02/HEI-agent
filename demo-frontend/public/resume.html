@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>袁浩 - AI Agent 开发工程师</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    color: #2c2c2c;
+    background: #f5f5f5;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: #fff;
+    padding: 12mm 18mm 10mm 18mm;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 2.5px solid #1a73e8;
+  }
+  .photo {
+    width: 85px;
+    height: 113px;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 1px solid #e0e0e0;
+    flex-shrink: 0;
+  }
+  .header-info { flex: 1; }
+  .header-info h1 {
+    font-size: 25px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+    letter-spacing: 2px;
+  }
+  .header-info .subtitle {
+    font-size: 14px;
+    color: #1a73e8;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .contact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+    font-size: 12.5px;
+    color: #555;
+  }
+
+  /* ── Section ── */
+  .section { margin-bottom: 10px; }
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a73e8;
+    border-left: 4px solid #1a73e8;
+    padding-left: 10px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Skills ── */
+  .skills-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 18px;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  .skills-grid .skill-item {
+    padding-left: 14px;
+    position: relative;
+  }
+  .skills-grid .skill-item::before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: #1a73e8;
+    font-size: 11px;
+  }
+
+  /* ── Project / Experience ── */
+  .entry { margin-bottom: 8px; }
+  .entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .entry-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+  .entry-link {
+    font-size: 11.5px;
+    color: #1a73e8;
+    text-decoration: none;
+  }
+  .entry-date {
+    font-size: 11.5px;
+    color: #888;
+    white-space: nowrap;
+  }
+  .entry-desc {
+    font-size: 12.5px;
+    color: #444;
+    margin-bottom: 3px;
+    line-height: 1.5;
+  }
+  .tech-stack {
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 3px;
+  }
+  .entry-list {
+    list-style: none;
+    font-size: 12.5px;
+    color: #444;
+    line-height: 1.6;
+  }
+  .entry-list li {
+    padding-left: 15px;
+    position: relative;
+    margin-bottom: 1px;
+  }
+  .entry-list li::before {
+    content: "●";
+    position: absolute;
+    left: 0;
+    color: #1a73e8;
+    font-size: 7px;
+    top: 7px;
+  }
+
+  /* ── Education ── */
+  .edu-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  /* ── Awards ── */
+  .awards-list {
+    font-size: 12.5px;
+    color: #444;
+    line-height: 1.65;
+    columns: 2;
+    column-gap: 22px;
+    list-style: none;
+  }
+  .awards-list li {
+    padding-left: 14px;
+    position: relative;
+  }
+  .awards-list li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #1a73e8;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* ── Print ── */
+  @media print {
+    body { background: #fff; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { box-shadow: none; margin: 0; padding: 12mm 18mm 10mm 18mm; min-height: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <img class="photo" src="images/证件照1.jpg" alt="袁浩证件照">
+    <div class="header-info">
+      <h1>袁 浩</h1>
+      <div class="subtitle">AI Agent 开发工程师</div>
+      <div class="contact">
+        <span>📞 133-4252-4113（微信同号）</span>
+        <span>📧 ponepuck@qq.com</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 教育背景 -->
+  <div class="section">
+    <div class="section-title">教育背景</div>
+    <div class="edu-row">
+      <span><b>湖南科技大学</b>　电子信息科学与技术（本科）</span>
+      <span style="color:#888;">2021 - 2025</span>
+    </div>
+  </div>
+
+  <!-- 专业技能 -->
+  <div class="section">
+    <div class="section-title">专业技能</div>
+    <div class="skills-grid">
+      <div class="skill-item"><b>Agent 框架：</b>ReAct / Tool Calling 自实现 | Plan-and-Solve | Reflection 范式</div>
+      <div class="skill-item"><b>RAG 工程：</b>Qdrant 向量检索 + DashScope gte-rerank 精排 | 分层记忆（文件 + SQLite）</div>
+      <div class="skill-item"><b>Agent 工程：</b>了解 Claude Code、OpenClaw、Hermes 等主流 Agent 架构与工具链</div>
+      <div class="skill-item"><b>后端开发：</b>Python 异步编程（asyncio / FastAPI）、RESTful API 设计</div>
+      <div class="skill-item"><b>基础工具：</b>Git、Docker、MySQL、Redis、PostgreSQL、Qdrant</div>
+      <div class="skill-item"><b>其他：</b>C/C++、Linux 环境开发</div>
+    </div>
+  </div>
+
+  <!-- 项目经历 -->
+  <div class="section">
+    <div class="section-title">项目经历</div>
+
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-title">智能健康管家 — 具备长期记忆的AI健康助手</span>
+        <a href="https://github.com/puck02/HEI-agent" target="_blank" class="entry-link">puck02/HEI-agent</a>
+        <span class="entry-date">2025.12 - 2026.5</span>
+      </div>
+      <div class="tech-stack">Python · FastAPI · Qdrant · SQLite · DashScope · LiteLLM · Docker · Vue 3</div>
+      <div class="entry-desc">独立开发全栈 AI 健康助手，自实现 ReAct Agent 循环，支持多轮工具调用、分层记忆和日报管理。</div>
+      <ul class="entry-list">
+        <li>自实现 ReAct 循环：while-loop 原生工具调用（13 工具），解决 DeepSeek API 不支持 tool_calls 回传的限制，设计两阶段文本合成方案保证多轮工具调用可靠性</li>
+        <li>分层记忆系统：MEMORY.md（Agent 笔记）+ USER.md（用户档案）+ SQLite 会话摘要，三要素同时注入 System Prompt，关键词 LIKE 检索，记忆召回率 100%</li>
+        <li>RAG 检索管线：Qdrant 向量召回 → DashScope gte-rerank 精排 → Top-5 截断；三个知识库（健康/用药/中医）共 774 chunks，RAG Recall 78.9%</li>
+        <li>全链路 Benchmark 得分 82.5/100：覆盖 Tool 准确率 77.8%、Reflection 五维度自动打分 + 阈值重试、P95 延迟 5.3s、确认机制 100%</li>
+      </ul>
+    </div>
+
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-title">Agent Office — AI 驱动的虚拟办公场景</span>
+        <span class="entry-date">2025.12 - 2026.2</span>
+      </div>
+      <div class="tech-stack">Python · FastAPI · Qdrant · SQLite · Godot 4</div>
+      <div class="entry-desc">构建多角色 AI 办公室（产品经理 / UI 设计师 / Python 工程师），探索 Multi-Agent 在游戏场景的落地方案。</div>
+      <ul class="entry-list">
+        <li>基于角色专属 System Prompt 实现统一调度与解耦，多轮对话保持角色一致性（>20 轮无明显角色漂移）</li>
+        <li>短期会话记忆（10 条/2h TTL）+ 长期情景记忆（SQLite + Qdrant），按重要性阈值与容量策略自动清理</li>
+        <li>独立部署情感分析 Agent，Few-shot Prompt 判断情感并自动更新 NPC 好感度，动态调整回复风格</li>
+        <li>TODO：接入 Claude Code、Hermes 等主流 Agent，打造成真实可用的开发团队</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 实习经历 -->
+  <div class="section">
+    <div class="section-title">实习经历</div>
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-title">成都超用心科技有限公司 — C++ 研发助理</span>
+        <span class="entry-date">2023.6 - 2023.10</span>
+      </div>
+      <ul class="entry-list">
+        <li>参与后端 HTTP 请求预处理与认证链路开发，实现 CORS 跨域处理、OPTIONS 预检及基于路由白名单的鉴权放行机制，完成 JWT 令牌校验与 RSA 验签的安全模块封装</li>
+        <li>负责人员信息管理与附件上传模块的 CRUD 接口开发，接入 FastDFS 实现文件分布式存储与链接回传</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 获奖与证书 -->
+  <div class="section">
+    <div class="section-title">获奖与证书</div>
+    <ul class="awards-list">
+      <li>蓝桥杯算法竞赛 省级二等奖</li>
+      <li>信达杯智能小车竞赛 电磁赛道二等奖</li>
+      <li>中科院傲来操作系统训练营 优秀营员</li>
+      <li>CET-4 / CET-6</li>
+      <li>校级综合二等奖学金（rk 前 15%）</li>
+      <li>优秀学生</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

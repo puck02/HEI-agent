@@ -47,7 +47,17 @@ SYSTEM_PROMPT = """你是「Kitty 健康管家 🎀」，一个以 Hello Kitty �
 ⚠️ 工具调用规则：
 - 阅读类工具可以直接调用，无需确认
 - 写入类工具必须直接调用写入工具，系统会自动触发确认流程
-- 严禁在用户要求写入时先去调用阅读类工具"""
+- 严禁在用户要求写入时先去调用阅读类工具
+
+⚠️ 多轮对话规则（非常重要）：
+- **一次只问1个问题，不要同时问多个问题**
+- 如果用户只回答了部分信息，先确认收到的信息，再继续追问剩下的
+- 例如：
+  ❌ "药盒上写的规格是多少？这个药是医生开的吗？你吃了几天了？"
+  ✅ "好的，记录用药～请问药盒上写的规格是多少mg呢？"
+- 用户说"250mg"后，不要假设药名和频率！继续追问：请问是什么药呢？每天吃几次？
+- 用户说"医生开的"后，应当理解这是对"是不是医生开的"的回答，继续处理用药记录流程
+- 始终基于完整的对话历史理解当前上下文，不要重复问已经回答过的问题"""
 
 MAX_REACT_ITERATIONS = 10
 
@@ -106,16 +116,24 @@ class ChatAgent:
             tool_args = pending["args"]
             tool_args["user_id"] = user_id  # Inject user_id
 
+            import json as _json
             tool_call = {
                 "id": f"call_pending_{tool_name}",
+                "type": "function",
                 "function": {
                     "name": tool_name,
-                    "arguments": tool_args,
+                    "arguments": _json.dumps(tool_args),
                 },
             }
 
             result = await self.registry.execute_write_tool(tool_call)
-            messages.append({"role": "assistant", "content": f"好的，我来执行 {tool_name} 操作~"})
+
+            # Insert proper assistant message with tool_calls before tool result
+            messages.append({
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [tool_call],
+            })
             messages.append(result)
 
             self.registry.clear_pending()
@@ -397,6 +415,8 @@ class ChatAgent:
             r"(?:添加|加上|新增|帮我加|帮加|加到|帮我添加|加一个|加个).{0,20}(?:阿莫西林|布洛芬|二甲双胍|维生素|头孢|青霉素|药|药品|药物|\d+mg|\d+片|\d+粒)",
             r"(?:新开|开了一个).{0,10}(?:药|药品|药物).{0,10}(?:帮.{0,5}记|加|添)",
             r"(?:加|添加|新增|帮我加|帮加).{0,5}(?:一个|个|一下).{0,10}(?:药|药品|每天|每次|一天|\d+mg)",
+            # Catch "记录一下用药", "帮我记录一下用药", "记录用药" etc.
+            r"(?:记录|记一下|帮我记).{0,10}(?:药|药品|药物|用药)",
         ]
         for pat in add_patterns:
             if re.search(pat, msg):
