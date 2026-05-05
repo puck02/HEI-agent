@@ -64,19 +64,19 @@ Agent Tool 和 API endpoint 走同一个 Service 层，数据一致。
 ```
 Layer 1: MEMORY.md          → 每轮注入 system prompt
   Agent 的动态笔记，LLM 通过 remember 工具写入
-  例："用户对青霉素过敏"、"项目使用 pytest"
+  例："用户对花粉过敏"、"偏好低盐饮食"
 
 Layer 2: USER.md            → 每轮注入 system prompt
   静态用户档案，开发者手动维护
-  例："袁浩，25届，主语言 C++ Python"
+  例："name: 小明\nage: 28\nfocus: 健康管理"
 
 Layer 3: SQLite memories    → LLM 主动 search_memory
   关键词检索（LIKE 匹配），LLM 自定关键词
-  例：search_memory(keywords="青霉素 过敏")
+  例：search_memory(keywords="花粉 过敏")
 
 Layer 4: SQLite sessions    → LLM 主动 search_sessions
   对话摘要，跨 session 回忆
-  例：search_sessions(keywords="高血压 讨论")
+  例：search_sessions(keywords="糖尿病 讨论")
 ```
 
 **设计原则**：模型自己决定何时搜索、搜索什么关键词。不自动检索、不做向量语义匹配。零 API 调用成本。
