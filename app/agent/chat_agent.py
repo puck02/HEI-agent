@@ -83,9 +83,7 @@ class ChatAgent:
 
         Args:
             single_round: If True, only make one LLM call and return tool results
-                          directly without a follow-up summarization call.
-                          Required for LLM providers that don't support multi-turn
-                          tool calling (e.g. DeepSeek).
+                          directly without a follow-up synthesis call.
 
         Returns: dict with keys: answer, tool_calls_made, iterations, latency_ms
         """
@@ -214,15 +212,35 @@ class ChatAgent:
                         "latency_ms": int((time.perf_counter() - started_at) * 1000),
                     }
 
-                # Multi-round: append results to messages and continue
-                assistant_msg = {
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": read_calls,
+                # Wrap tool results as user context + synthesize with plain LLM
+                # (DeepSeek API rejects tool_calls format in message history,
+                #  so we avoid the native multi-turn pattern and use text-only synthesis)
+                tool_outputs = "\n\n".join(
+                    f"[{r.get('tool_call_id', '')[:8]}] {r.get('content', '')}"
+                    for r in read_results
+                )
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"系统已为你检索了以下辅助信息：\n\n"
+                        f"{tool_outputs}\n\n"
+                        f"请综合这些信息，用Kitty的语气给用户一个完整、专业、温暖的回答。"
+                        f"不要只是罗列信息，要结合用户的问题给出个性化建议。"
+                    ),
+                })
+
+                try:
+                    final_response = await self._call_llm(messages)
+                except Exception:
+                    log.exception("react_synthesis_failed")
+                    final_response = tool_outputs
+
+                return {
+                    "answer": final_response,
+                    "tool_calls_made": tool_calls_made,
+                    "iterations": iteration + 1,
+                    "latency_ms": int((time.perf_counter() - started_at) * 1000),
                 }
-                messages.append(assistant_msg)
-                for r in read_results:
-                    messages.append(r)
 
             # Handle write tool — needs confirmation
             if write_call:
@@ -248,9 +266,6 @@ class ChatAgent:
                     "pending_tool": write_name,
                 }
 
-            # If only read tools were executed, continue loop with updated context
-            continue
-
         # Max iterations reached
         return {
             "answer": "🎀  Kitty 想了好久还是想不明白～请换个方式问我吧！",
@@ -273,10 +288,11 @@ class ChatAgent:
     ) -> dict[str, Any]:
         """Two-phase chat: Phase 1 (LLM+tools→decide), Phase 2 (plain LLM→synthesize).
 
-        Designed for LLM providers that don't support multi-turn tool calling
-        (e.g. DeepSeek). Phase 1 calls the LLM with tools to decide what to
-        retrieve; Phase 2 feeds the tool results back into a plain completion
-        call for synthesis.
+        Phase 1 calls the LLM with tools to decide what to retrieve;
+        Phase 2 feeds the tool results back into a plain completion
+        call for synthesis. The two-phase pattern is used for daily
+        reports to ensure a polished synthesized response rather than
+        raw tool output.
         """
         # Phase 1: LLM decides which tools to call
         tool_schemas = self.registry.get_tool_schemas()
