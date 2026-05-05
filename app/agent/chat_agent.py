@@ -39,11 +39,15 @@ SYSTEM_PROMPT = """你是「Kitty 健康管家 🎀」，一个以 Hello Kitty �
 - search_sessions(keywords) 可以搜索过往对话摘要
 - 如果用户只是闲聊或询问通用问题，不需要调用任何工具
 
+📋 日报分析流程（当用户提交包含「日报」和「建议」的健康数据时）：
+1. 先并行调用 read 工具：search_memory(keywords="睡眠 饮食 运动 血压...") 查用户历史
+   + search_health(query="...") / search_medication(query="...") 查知识库
+2. 综合分析：日报数据 + 记忆中的用户画像 + 知识库建议 → 给出个性化健康建议
+
 ⚠️ 工具调用规则：
 - 阅读类工具可以直接调用，无需确认
 - 写入类工具必须直接调用写入工具，系统会自动触发确认流程
-- 严禁在用户要求写入时先去调用阅读类工具
-- 如果用户的提问中已经包含了完整的健康数据（如「日报」「体检」「报告」），直接基于数据给出分析建议，不需要调用读工具查数据库"""
+- 严禁在用户要求写入时先去调用阅读类工具"""
 
 MAX_REACT_ITERATIONS = 10
 
@@ -60,11 +64,12 @@ class ChatAgent:
         log.info("chat_agent_initialized", tools=len(TOOL_REGISTRY))
 
     def _build_system_prompt(self, user_id: str) -> str:
-        """Build system prompt with MEMORY.md and USER.md injected."""
+        """Build system prompt with MEMORY.md, USER.md, and user_id injected."""
+        user_context = f"当前用户ID: {user_id}\n\n"
         context = self._profile.get_system_context(user_id)
         if context:
-            return SYSTEM_PROMPT + "\n\n---\n\n" + context
-        return SYSTEM_PROMPT
+            return user_context + SYSTEM_PROMPT + "\n\n---\n\n" + context
+        return user_context + SYSTEM_PROMPT
 
     async def chat(
         self,
@@ -139,18 +144,9 @@ class ChatAgent:
         # Add user message
         messages.append({"role": "user", "content": message})
 
-        # Daily report: analyze data directly without tool calls
+        # Daily report: use two-phase approach (DeepSeek-safe)
         if self._is_daily_report(message):
-            try:
-                final_response = await self._call_llm(messages)
-                return {
-                    "answer": final_response,
-                    "tool_calls_made": [],
-                    "iterations": 0,
-                    "latency_ms": int((time.perf_counter() - started_at) * 1000),
-                }
-            except Exception:
-                log.exception("daily_report_analysis_failed")
+            return await self._two_phase_chat(messages, started_at, tool_calls_made)
 
         # Pre-route strong write intents (bypass LLM for write tool selection)
         pre_route = self._pre_route_write_intent(message, user_id)
@@ -268,6 +264,78 @@ class ChatAgent:
     def _is_daily_report(self, message: str) -> bool:
         """Check if message contains daily report data for analysis."""
         return ("日报" in message or "健康数据" in message) and "建议" in message
+
+    async def _two_phase_chat(
+        self,
+        messages: list[dict[str, Any]],
+        started_at: float,
+        tool_calls_made: list[str],
+    ) -> dict[str, Any]:
+        """Two-phase chat: Phase 1 (LLM+tools→decide), Phase 2 (plain LLM→synthesize).
+
+        Designed for LLM providers that don't support multi-turn tool calling
+        (e.g. DeepSeek). Phase 1 calls the LLM with tools to decide what to
+        retrieve; Phase 2 feeds the tool results back into a plain completion
+        call for synthesis.
+        """
+        # Phase 1: LLM decides which tools to call
+        tool_schemas = self.registry.get_tool_schemas()
+        try:
+            response = await self._call_llm_with_tools(messages, tool_schemas)
+        except Exception:
+            log.exception("two_phase_llm_failed phase=1")
+            return {
+                "answer": "🎀 Kitty 遇到了一点小问题～请稍后再试哦！",
+                "tool_calls_made": tool_calls_made,
+                "iterations": 0,
+                "latency_ms": int((time.perf_counter() - started_at) * 1000),
+            }
+
+        tool_calls = self._extract_tool_calls(response)
+
+        if not tool_calls:
+            # No tools needed — just return the LLM response
+            return {
+                "answer": response.get("content", ""),
+                "tool_calls_made": tool_calls_made,
+                "iterations": 1,
+                "latency_ms": int((time.perf_counter() - started_at) * 1000),
+            }
+
+        # Execute read tools and collect results
+        read_results = await self.registry.execute_read_tools(tool_calls)
+        for tc in tool_calls:
+            name = tc.get("function", {}).get("name", "unknown")
+            tool_calls_made.append(f"read:{name}")
+
+        tool_outputs = "\n\n".join(
+            f"[{r.get('tool_call_id', '')[:8]}] {r.get('content', '')}"
+            for r in read_results
+        )
+
+        # Phase 2: Plain LLM call to synthesize (no tools → DeepSeek safe)
+        # Use 'user' role so the LLM treats tool results as additional context
+        messages.append({
+            "role": "user",
+            "content": (
+                f"系统已经为你检索了以下辅助信息来帮助分析日报：\n\n"
+                f"{tool_outputs}\n\n"
+                f"请基于用户的日报数据和上述检索结果，用Kitty的语气给出个性化、专业、温暖的健康建议。"
+            ),
+        })
+
+        try:
+            final_response = await self._call_llm(messages)
+        except Exception:
+            log.exception("two_phase_llm_failed phase=2")
+            final_response = tool_outputs  # Fallback: return raw tool results
+
+        return {
+            "answer": final_response,
+            "tool_calls_made": tool_calls_made,
+            "iterations": 2,
+            "latency_ms": int((time.perf_counter() - started_at) * 1000),
+        }
 
     def _is_confirmation(self, message: str) -> bool:
         """Check if message is a confirmation of a pending action."""

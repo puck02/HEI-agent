@@ -140,7 +140,7 @@ def create_app() -> FastAPI:
             user_id="demo_user",
             session_id=session_id or "demo_session",
             message=message,
-            single_round=True,
+            single_round=True,   # DeepSeek-safe: two-phase daily report handles multi-tool internally
         )
         return {
             "response": result["answer"],
