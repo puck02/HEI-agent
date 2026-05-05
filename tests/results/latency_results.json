@@ -3,82 +3,82 @@
     {
       "category": "rag",
       "message": "高血压怎么预防？",
-      "latency_ms": 2241.11
+      "latency_ms": 2784.47
     },
     {
       "category": "rag",
       "message": "阿莫西林的副作用是什么？",
-      "latency_ms": 1648.0
+      "latency_ms": 1969.12
     },
     {
       "category": "rag",
       "message": "枸杞有什么好处？",
-      "latency_ms": 1982.43
+      "latency_ms": 2712.71
     },
     {
       "category": "rag",
       "message": "每天应该运动多久？",
-      "latency_ms": 1756.51
+      "latency_ms": 1786.21
     },
     {
       "category": "tool",
       "message": "帮我查一下我现在在吃什么药",
-      "latency_ms": 1277.98
+      "latency_ms": 1133.62
     },
     {
       "category": "tool",
       "message": "看看我最近的健康记录",
-      "latency_ms": 1466.9
+      "latency_ms": 1482.55
     },
     {
       "category": "tool",
       "message": "搜索一下我的过敏历史",
-      "latency_ms": 1493.97
+      "latency_ms": 1717.54
     },
     {
       "category": "chitchat",
       "message": "你好呀Kitty",
-      "latency_ms": 1458.09
+      "latency_ms": 1550.73
     },
     {
       "category": "chitchat",
       "message": "今天天气怎么样？",
-      "latency_ms": 2472.57
+      "latency_ms": 1685.1
     },
     {
       "category": "chitchat",
       "message": "你有什么功能？",
-      "latency_ms": 5280.73
+      "latency_ms": 4679.1
     }
   ],
   "categorized": {
     "rag": {
-      "p50": 1982.43,
-      "p95": 2241.11,
-      "p99": 2241.11,
-      "mean": 1907.01,
+      "p50": 2712.71,
+      "p95": 2784.47,
+      "p99": 2784.47,
+      "mean": 2313.13,
       "samples": 4
     },
     "tool": {
-      "p50": 1466.9,
-      "p95": 1493.97,
-      "p99": 1493.97,
-      "mean": 1412.95,
+      "p50": 1482.55,
+      "p95": 1717.54,
+      "p99": 1717.54,
+      "mean": 1444.57,
       "samples": 3
     },
     "chitchat": {
-      "p50": 2472.57,
-      "p95": 5280.73,
-      "p99": 5280.73,
-      "mean": 3070.46,
+      "p50": 1685.1,
+      "p95": 4679.1,
+      "p99": 4679.1,
+      "mean": 2638.31,
       "samples": 3
     }
   },
   "overall": {
-    "p50": 1756.51,
-    "p95": 5280.73,
-    "p99": 5280.73,
-    "mean": 2107.83,
+    "p50": 1786.21,
+    "p95": 4679.1,
+    "p99": 4679.1,
+    "mean": 2150.12,
     "samples": 10
   }
 }

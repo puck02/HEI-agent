@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
 import structlog
 from qdrant_client import AsyncQdrantClient, models
 
@@ -34,6 +35,8 @@ class RAGEngine:
         )
         self.top_k = settings.rag_top_k
         self.rerank_top_k = settings.rag_rerank_top_k
+        self.dashscope_api_key = settings.dashscope_api_key
+        self._httpx: httpx.AsyncClient | None = None
 
     async def ensure_collections(self) -> None:
         """Create collections if they don't exist."""
@@ -124,9 +127,63 @@ class RAGEngine:
             except Exception as e:
                 log.warning("qdrant_search_failed", collection=coll_name, error=str(e))
 
-        # Sort by score and return top-k
+        # Sort by score, then rerank with DashScope
         all_results.sort(key=lambda x: x["score"], reverse=True)
-        return all_results[:top_k]
+        candidates = all_results[:self.rerank_top_k]
+        
+        if self.dashscope_api_key and len(candidates) > top_k:
+            try:
+                candidates = await self._rerank(query, candidates, top_k)
+            except Exception:
+                log.exception("rerank_failed")
+        
+        return candidates[:top_k]
+    
+    async def _get_httpx(self) -> httpx.AsyncClient:
+        if self._httpx is None:
+            self._httpx = httpx.AsyncClient(timeout=httpx.Timeout(15.0))
+        return self._httpx
+    
+    async def _rerank(
+        self,
+        query: str,
+        docs: list[dict],
+        top_n: int,
+    ) -> list[dict]:
+        """Call DashScope Rerank API with qwen3-vl-rerank model."""
+        http = await self._get_httpx()
+        documents = [d.get("content", "") for d in docs]
+        
+        resp = await http.post(
+            "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+            headers={
+                "Authorization": f"Bearer {self.dashscope_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "qwen3-vl-rerank",
+                "input": {
+                    "query": query,
+                    "documents": documents,
+                },
+                "parameters": {
+                    "return_documents": True,
+                    "top_n": min(top_n, len(documents)),
+                },
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        results: list[dict] = []
+        for item in data.get("output", {}).get("results", []):
+            idx = item.get("index", 0)
+            if idx < len(docs):
+                results.append({
+                    **docs[idx],
+                    "score": item.get("relevance_score", 0.0),
+                })
+        return results
 
     async def retrieve_with_refs(
         self,
