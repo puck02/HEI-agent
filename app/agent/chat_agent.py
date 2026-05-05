@@ -41,8 +41,9 @@ SYSTEM_PROMPT = """你是「Kitty 健康管家 🎀」，一个以 Hello Kitty �
 
 ⚠️ 工具调用规则：
 - 阅读类工具可以直接调用，无需确认
-- 写入类工具（add_medication/update_medication/remove_medication/log_health/remember）：必须直接调用对应的写入工具，系统会自动触发确认流程
-- 严禁在用户要求写入时先去调用阅读类工具"""
+- 写入类工具必须直接调用写入工具，系统会自动触发确认流程
+- 严禁在用户要求写入时先去调用阅读类工具
+- 如果用户的提问中已经包含了完整的健康数据（如「日报」「体检」「报告」），直接基于数据给出分析建议，不需要调用读工具查数据库"""
 
 MAX_REACT_ITERATIONS = 10
 
@@ -137,6 +138,19 @@ class ChatAgent:
 
         # Add user message
         messages.append({"role": "user", "content": message})
+
+        # Daily report: analyze data directly without tool calls
+        if self._is_daily_report(message):
+            try:
+                final_response = await self._call_llm(messages)
+                return {
+                    "answer": final_response,
+                    "tool_calls_made": [],
+                    "iterations": 0,
+                    "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                }
+            except Exception:
+                log.exception("daily_report_analysis_failed")
 
         # Pre-route strong write intents (bypass LLM for write tool selection)
         pre_route = self._pre_route_write_intent(message, user_id)
@@ -250,6 +264,10 @@ class ChatAgent:
         }
 
     # ── Helpers ────────────────────────────────────────────
+
+    def _is_daily_report(self, message: str) -> bool:
+        """Check if message contains daily report data for analysis."""
+        return ("日报" in message or "健康数据" in message) and "建议" in message
 
     def _is_confirmation(self, message: str) -> bool:
         """Check if message is a confirmation of a pending action."""

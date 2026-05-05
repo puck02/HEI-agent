@@ -126,6 +126,31 @@ def create_app() -> FastAPI:
     except Exception as e:
         log.warning("medication_router_skipped", error=str(e))
 
+    # ── Demo Chat (no auth) ──────────────────────────────
+    @app.post("/api/demo/chat", tags=["demo"])
+    async def demo_chat(request: Request):
+        """Demo chat endpoint — no authentication required."""
+        body = await request.json()
+        message = body.get("message", "")
+        session_id = body.get("session_id", "demo_session")
+        
+        from app.agent.chat_agent import ChatAgent
+        agent = ChatAgent()
+        result = await agent.chat(
+            user_id="demo_user",
+            session_id=session_id or "demo_session",
+            message=message,
+            single_round=True,
+        )
+        return {
+            "response": result["answer"],
+            "answer": result["answer"],
+            "session_id": session_id or "demo_session",
+            "tool_calls_made": result.get("tool_calls_made", []),
+            "latency_ms": result.get("latency_ms", 0),
+            "references": [],
+        }
+
     # ── Health Check ─────────────────────────────────────
     @app.get("/health", tags=["system"])
     async def health_check():
