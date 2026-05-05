@@ -161,15 +161,11 @@ class RAGEngine:
                 "Content-Type": "application/json",
             },
             json={
-                "model": "qwen3-vl-rerank",
-                "input": {
-                    "query": query,
-                    "documents": documents,
-                },
-                "parameters": {
-                    "return_documents": True,
-                    "top_n": min(top_n, len(documents)),
-                },
+                "model": "gte-rerank",
+                "query": query,
+                "documents": documents,
+                "top_n": min(top_n, len(documents)),
+                "return_documents": True,
             },
         )
         resp.raise_for_status()
