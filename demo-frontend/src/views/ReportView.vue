@@ -2,6 +2,13 @@
 import { ref, computed } from 'vue'
 import SliderInput from '../components/SliderInput.vue'
 import { sendMessage } from '../api'
+import { marked } from 'marked'
+
+// Configure marked
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+})
 
 const questions = [
   {
@@ -110,6 +117,10 @@ const answers = ref({
 })
 
 const advice = ref('')
+const renderedAdvice = computed(() => {
+  if (!advice.value) return ''
+  return marked.parse(advice.value)
+})
 const loading = ref(false)
 const submitted = ref(false)
 const currentStep = ref(0)
@@ -322,7 +333,7 @@ const handleSubmit = async () => {
           <span class="text-lg">🐱</span>
           <h3 class="text-sm font-bold text-gray-700">Kitty 的建议</h3>
         </div>
-        <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{{ advice }}</p>
+        <div class="text-sm text-gray-600 leading-relaxed md-content" v-html="renderedAdvice"></div>
       </div>
     </div>
   </div>
