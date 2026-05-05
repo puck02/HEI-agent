@@ -10,6 +10,16 @@ export async function sendMessage(message, sessionId) {
   return data
 }
 
+export async function fetchMedications(userId = 'demo_user') {
+  const { data } = await api.get('/demo/medications', { params: { user_id: userId } })
+  return data
+}
+
+export async function addMedication(med, userId = 'demo_user') {
+  const { data } = await api.post('/demo/medications', { ...med, user_id: userId })
+  return data
+}
+
 export async function healthCheck() {
   const { data } = await axios.get('/health')
   return data

@@ -152,10 +152,14 @@ class RAGEngineLocal:
             },
             json={
                 "model": "gte-rerank",
-                "query": query,
-                "documents": documents,
-                "top_n": min(top_n, len(documents)),
-                "return_documents": True,
+                "input": {
+                    "query": query,
+                    "documents": documents,
+                },
+                "parameters": {
+                    "top_n": min(top_n, len(documents)),
+                    "return_documents": True,
+                },
             },
         )
         resp.raise_for_status()

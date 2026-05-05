@@ -1,35 +1,23 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { fetchMedications, addMedication } from '../api/index.js'
 
-const medications = ref([
-  {
-    id: 1,
-    name: '维生素D',
-    dosage: '1000 IU',
-    frequency: '每日一次',
-    time: '早餐后',
-    note: '促进钙吸收，预防骨质疏松',
-    active: true,
-  },
-  {
-    id: 2,
-    name: '鱼油 Omega-3',
-    dosage: '1000mg',
-    frequency: '每日一次',
-    time: '午餐后',
-    note: '辅助降血脂，保护心血管',
-    active: true,
-  },
-  {
-    id: 3,
-    name: '益生菌',
-    dosage: '100亿 CFU',
-    frequency: '每日一次',
-    time: '空腹',
-    note: '调节肠道菌群',
-    active: false,
-  },
-])
+const medications = ref([])
+const loading = ref(false)
+
+const loadMeds = async () => {
+  loading.value = true
+  try {
+    const data = await fetchMedications()
+    medications.value = data.medications || []
+  } catch (e) {
+    console.error('Failed to load medications:', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadMeds)
 
 const showAdd = ref(false)
 const editingId = ref(null)
@@ -38,13 +26,20 @@ const deleteTargetId = ref(null)
 const newMed = ref({ name: '', dosage: '', frequency: '', time: '', note: '' })
 const editMed = ref({ name: '', dosage: '', frequency: '', time: '', note: '' })
 
-const addMed = () => {
+const addMed = async () => {
   if (!newMed.value.name) return
-  medications.value.push({
-    id: Date.now(),
-    ...newMed.value,
-    active: true,
-  })
+  try {
+    const result = await addMedication(newMed.value)
+    if (result.ok) {
+      medications.value.push({
+        id: result.id,
+        ...newMed.value,
+        active: true,
+      })
+    }
+  } catch (e) {
+    console.error('Failed to add medication:', e)
+  }
   newMed.value = { name: '', dosage: '', frequency: '', time: '', note: '' }
   showAdd.value = false
 }

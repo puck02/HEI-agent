@@ -217,6 +217,36 @@ def create_app() -> FastAPI:
             "references": [],
         }
 
+    # ── Demo Medication API (no auth) ────────────────────
+    @app.get("/api/demo/medications", tags=["demo"])
+    async def get_demo_medications(user_id: str = "demo_user"):
+        """Get all medications for demo user."""
+        from app.services.medication_service import MedicationService
+        try:
+            service = MedicationService()
+            records = service.get_all(user_id)
+            return {"medications": records}
+        except Exception as e:
+            return {"medications": [], "error": str(e)}
+
+    @app.post("/api/demo/medications", tags=["demo"])
+    async def add_demo_medication(request: Request):
+        """Add a medication for demo user."""
+        body = await request.json()
+        user_id = body.get("user_id", "demo_user")
+        from app.services.medication_service import MedicationService
+        try:
+            service = MedicationService()
+            med_id = service.add(user_id, {
+                "name": body.get("name", ""),
+                "dosage": body.get("dosage", ""),
+                "frequency": body.get("frequency", ""),
+                "notes": body.get("notes", ""),
+            })
+            return {"ok": True, "id": med_id}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
     # ── Daily Report (one per user per day) ───────────────
     @app.get("/api/demo/daily-report", tags=["demo"])
     async def get_daily_report(user_id: str = "demo_user"):
