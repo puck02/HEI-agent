@@ -21,7 +21,7 @@
       "tool_calls": [
         "pending:add_medication"
       ],
-      "answer_preview": "🎀 Kitty 想确认一下：你要我添加药品「布洛芬」，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
+      "answer_preview": "🎀 Kitty 想确认一下：你要我添加药品「」，对吗？\n\n请回复「确认」来执行，或告诉我你想怎么调整～"
     },
     {
       "message": "新增药物：二甲双胍 850mg 每天两次随餐",

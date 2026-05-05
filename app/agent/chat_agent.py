@@ -13,6 +13,7 @@ from litellm import acompletion
 from app.agent.tool_registry import ToolRegistry
 from app.agent.tools import TOOL_REGISTRY
 from app.config import get_settings
+from app.services.profile_service import ProfileService
 
 log = logging.getLogger(__name__)
 
@@ -29,13 +30,19 @@ SYSTEM_PROMPT = """你是「Kitty 健康管家 🎀」，一个以 Hello Kitty �
 2. 对于用药问题，基于用药记录给出参考意见，但提醒重要变更需咨询医生
 3. 不夸张、不恐吓，如果发现需要就医的信号，温柔提醒
 4. 回答基于用户的实际健康数据和科学的健康知识
+5. 当用户提到与个人相关的话题（如过敏史、用药偏好、生活习惯），使用 search_memory(keywords="关键词") 搜索
 
-⚠️ 工具调用规则（非常重要！）：
-- 阅读类工具（search_health/search_medication/search_tcm/search_memory/get_my_medications/get_health_logs/describe_image）：可以直接调用，无需确认。
-- 写入类工具（add_medication/update_medication/remove_medication/log_health/remember）：当用户意图是写入/修改/删除数据时，你**必须直接调用对应的写入工具**，系统会自动触发确认流程向用户确认。
-- **严禁**在用户要求写入时先去调用阅读类工具（如 get_my_medications、get_health_logs、search_memory），这是错误的！正确做法是：用户说要添加药品 → 直接调用 add_medication；用户说要更新药品 → 直接调用 update_medication；用户说要删除药品 → 直接调用 remove_medication；用户说要记录健康数据 → 直接调用 log_health；用户说"记住XXX" → 直接调用 remember。系统会替你跟用户确认！
-- 如果用户消息是简短的确认语句（"确认"、"好的"、"可以"、"yes"等），检查是否有待确认的操作需要执行。
-"""
+⚠️ 记忆系统说明：
+- 你的系统提示词中已经包含了 USER.md（用户档案）和 MEMORY.md（你的笔记）
+- search_memory 只用于搜索「用户个人」的事实和偏好，如 "青霉素 过敏"、"咖啡 偏好"
+- 需要健康/药品/中医知识时，优先使用 search_health / search_medication / search_tcm
+- search_sessions(keywords) 可以搜索过往对话摘要
+- 如果用户只是闲聊或询问通用问题，不需要调用任何工具
+
+⚠️ 工具调用规则：
+- 阅读类工具可以直接调用，无需确认
+- 写入类工具（add_medication/update_medication/remove_medication/log_health/remember）：必须直接调用对应的写入工具，系统会自动触发确认流程
+- 严禁在用户要求写入时先去调用阅读类工具"""
 
 MAX_REACT_ITERATIONS = 10
 
@@ -48,7 +55,15 @@ class ChatAgent:
         self.registry = ToolRegistry()
         self.registry.register_from_registry(TOOL_REGISTRY)
         self._settings = settings
+        self._profile = ProfileService()
         log.info("chat_agent_initialized", tools=len(TOOL_REGISTRY))
+
+    def _build_system_prompt(self, user_id: str) -> str:
+        """Build system prompt with MEMORY.md and USER.md injected."""
+        context = self._profile.get_system_context(user_id)
+        if context:
+            return SYSTEM_PROMPT + "\n\n---\n\n" + context
+        return SYSTEM_PROMPT
 
     async def chat(
         self,
@@ -71,8 +86,8 @@ class ChatAgent:
         started_at = time.perf_counter()
         tool_calls_made: list[str] = []
 
-        # Build initial messages
-        messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        # Build initial messages with dynamic system prompt
+        messages: list[dict[str, Any]] = [{"role": "system", "content": self._build_system_prompt(user_id)}]
 
         if conversation_history:
             messages.extend(conversation_history)
@@ -277,8 +292,9 @@ class ChatAgent:
 
         # Strong add patterns
         add_patterns = [
-            r"(?:添加|加上|新增|帮我加|帮加|加到|帮我添加).{0,15}(?:药|药品|药物)",
+            r"(?:添加|加上|新增|帮我加|帮加|加到|帮我添加|加一个|加个).{0,20}(?:阿莫西林|布洛芬|二甲双胍|维生素|头孢|青霉素|药|药品|药物|\d+mg|\d+片|\d+粒)",
             r"(?:新开|开了一个).{0,10}(?:药|药品|药物).{0,10}(?:帮.{0,5}记|加|添)",
+            r"(?:加|添加|新增|帮我加|帮加).{0,5}(?:一个|个|一下).{0,10}(?:药|药品|每天|每次|一天|\d+mg)",
         ]
         for pat in add_patterns:
             if re.search(pat, msg):
@@ -287,6 +303,7 @@ class ChatAgent:
         # Strong log_health patterns
         log_patterns = [
             r"(?:记录一下|记一下|记一笔|记录|帮我记录).{0,10}(?:今天|昨天|今早|早上|下午|晚上)?(?:血压|血糖|体重|体温|心率|体脂|血氧)",
+            r"(?:血压|血糖|体重|体温|心率|体脂|血氧).{0,30}(?:记录一下|记一下|记一笔|记录|帮我记录)",
         ]
         for pat in log_patterns:
             if re.search(pat, msg):

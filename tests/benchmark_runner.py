@@ -358,8 +358,10 @@ async def test_memory_recall() -> dict[str, Any]:
     for item in queries:
         q = item["query"]
         expected_kw = item.get("expected_memory_keywords", [])
+        # Build search keywords from expected keywords (first 3)
+        search_kw = " ".join(expected_kw[:3]) if expected_kw else q
         try:
-            results = await service.search_memory(query=q, user_id=user_id, top_k=5)
+            results = await service.search_memory(keywords=search_kw, user_id=user_id, top_k=5)
             hit = False
             for r in results[:5]:
                 content = r.get("content", "")

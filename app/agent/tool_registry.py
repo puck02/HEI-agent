@@ -15,7 +15,7 @@ class ToolRegistry:
     # Read tools can execute in parallel (no side effects)
     READ_TOOL_NAMES = {
         "search_health", "search_medication", "search_tcm",
-        "search_memory", "describe_image",
+        "search_memory", "search_sessions", "describe_image",
         "get_my_medications", "get_health_logs",
     }
 

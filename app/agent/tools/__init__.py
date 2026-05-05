@@ -10,7 +10,7 @@ from app.agent.tools.medication import (
     update_medication,
 )
 from app.agent.tools.health_log import get_health_logs, log_health
-from app.agent.tools.memory_tool import search_memory, remember
+from app.agent.tools.memory_tool import search_memory, search_sessions, remember
 from app.agent.tools.vision import describe_image
 
 # Tool registry: list of {name, func, description, parameters, is_write}
@@ -58,14 +58,28 @@ TOOL_REGISTRY = [
     {
         "name": "search_memory",
         "func": search_memory,
-        "description": "Search user's long-term memories for relevant past information",
+        "description": "Search user's long-term memories by keywords. LLM decides what keywords to use (e.g., '青霉素 过敏'). Uses SQLite LIKE matching.",
         "parameters": {
             "type": "object",
             "properties": {
                 "user_id": {"type": "string", "description": "The user's ID"},
-                "query": {"type": "string", "description": "Search query for memories"}
+                "keywords": {"type": "string", "description": "Space-separated keywords to search, e.g. '青霉素 过敏'"}
             },
-            "required": ["user_id", "query"],
+            "required": ["user_id", "keywords"],
+        },
+        "is_write": False,
+    },
+    {
+        "name": "search_sessions",
+        "func": search_sessions,
+        "description": "Search past conversation session summaries by keywords. Useful when the user references previous conversations.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "string", "description": "The user's ID"},
+                "keywords": {"type": "string", "description": "Space-separated keywords to search past sessions"}
+            },
+            "required": ["user_id", "keywords"],
         },
         "is_write": False,
     },
@@ -190,7 +204,7 @@ TOOL_REGISTRY = [
 
 __all__ = [
     "search_health", "search_medication", "search_tcm",
-    "search_memory", "remember",
+    "search_memory", "search_sessions", "remember",
     "describe_image",
     "get_my_medications", "add_medication", "update_medication", "remove_medication",
     "get_health_logs", "log_health",
