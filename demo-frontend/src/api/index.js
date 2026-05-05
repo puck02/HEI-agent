@@ -41,3 +41,19 @@ export async function deleteSession(sessionId) {
   const { data } = await api.delete(`/v1/sessions/${sessionId}`)
   return data
 }
+
+// ── Daily Report API ─────────────────────────────────────
+
+export async function getTodayReport(userId = 'demo_user') {
+  const { data } = await api.get('/demo/daily-report', { params: { user_id: userId } })
+  return data
+}
+
+export async function saveReport(answers, advice, userId = 'demo_user') {
+  const { data } = await api.post('/demo/daily-report', {
+    user_id: userId,
+    answers,
+    advice,
+  })
+  return data
+}

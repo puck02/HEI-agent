@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import SliderInput from '../components/SliderInput.vue'
-import { sendMessage } from '../api'
+import { sendMessage, getTodayReport, saveReport } from '../api'
 import { marked } from 'marked'
 
 // Configure marked
@@ -101,7 +101,7 @@ const questions = [
   },
 ]
 
-const answers = ref({
+const defaultAnswers = () => ({
   overall: '',
   focus: [],
   sleep_hours: '',
@@ -116,6 +116,7 @@ const answers = ref({
   extra: '',
 })
 
+const answers = ref(defaultAnswers())
 const advice = ref('')
 const renderedAdvice = computed(() => {
   if (!advice.value) return ''
@@ -124,6 +125,16 @@ const renderedAdvice = computed(() => {
 const loading = ref(false)
 const submitted = ref(false)
 const currentStep = ref(0)
+
+// ── Daily report state ──────────────────────────────────
+const hasTodayReport = ref(false)
+const todayAnswers = ref(null)
+const todayAdvice = ref('')
+const renderedTodayAdvice = computed(() => {
+  if (!todayAdvice.value) return ''
+  return marked.parse(todayAdvice.value)
+})
+const checkingReport = ref(true)  // loading state while checking
 
 const totalSteps = questions.length
 
@@ -162,6 +173,29 @@ const prevStep = () => {
   }
 }
 
+// ── Check today's report on mount ───────────────────────
+onMounted(async () => {
+  try {
+    const data = await getTodayReport()
+    if (data.exists && data.report) {
+      hasTodayReport.value = true
+      todayAnswers.value = data.report.answers
+      todayAdvice.value = data.report.advice
+    }
+  } catch (e) {
+    // If check fails, assume no report → show form
+    console.warn('Failed to check today report:', e)
+  } finally {
+    checkingReport.value = false
+  }
+})
+
+const formatAnswerValue = (q, val) => {
+  if (q.type === 'multi') return Array.isArray(val) ? val.join('、') : val
+  if (q.type === 'slider') return `${val}/10`
+  return val
+}
+
 const handleSubmit = async () => {
   loading.value = true
   const parts = []
@@ -181,13 +215,26 @@ const handleSubmit = async () => {
   try {
     const data = await sendMessage(`今日健康日报：${summary}，请给我一些改善建议。`)
     advice.value = data.response
+
+    // Save to backend (upsert)
+    const answersSnapshot = { ...answers.value }
+    await saveReport(answersSnapshot, data.response)
+
+    // Switch to "submitted" view
+    submitted.value = true
   } catch {
     advice.value = '感谢提交日报！建议保持规律作息，适当运动，注意饮食均衡。'
+    submitted.value = true
   } finally {
     loading.value = false
-    submitted.value = true
   }
 }
+
+// Date label for history view
+const todayLabel = computed(() => {
+  const d = new Date()
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+})
 </script>
 
 <template>
@@ -201,140 +248,194 @@ const handleSubmit = async () => {
       <p class="text-xs opacity-80 mt-0.5">完成日报，让 Kitty 更了解你</p>
     </div>
 
-    <!-- Progress bar -->
-    <div class="px-4 pt-3 pb-1">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs text-kitty-500 font-medium">
-          {{ submitted ? '已完成' : `${currentStep + 1} / ${totalSteps}` }}
-        </span>
-        <span class="text-xs text-gray-400">
-          {{ submitted ? '100%' : `${Math.round(((currentStep + 1) / totalSteps) * 100)}%` }}
-        </span>
-      </div>
-      <div class="h-2 bg-kitty-100 rounded-full overflow-hidden">
-        <div
-          class="h-full bg-gradient-to-r from-kitty-400 to-kitty-300 rounded-full transition-all duration-300"
-          :style="{ width: submitted ? '100%' : `${((currentStep + 1) / totalSteps) * 100}%` }"
-        />
-      </div>
+    <!-- Loading: checking today's report -->
+    <div v-if="checkingReport" class="p-8 text-center">
+      <div class="animate-pulse text-kitty-400 text-lg">🎀 正在检查今天的日报...</div>
     </div>
 
-    <!-- Not submitted: show questions -->
-    <div v-if="!submitted" class="p-4">
-      <div class="bg-white rounded-2xl p-5 shadow-kitty-sm">
-        <!-- Current question -->
-        <div v-if="currentQuestion">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-xl">{{ currentQuestion.icon }}</span>
-            <h3 class="text-base font-bold text-gray-800">{{ currentQuestion.label }}</h3>
-          </div>
-
-          <!-- Single choice -->
-          <div v-if="currentQuestion.type === 'single'" class="grid grid-cols-2 gap-2">
-            <button
-              v-for="opt in currentQuestion.options"
-              :key="opt"
-              @click="answers[currentQuestion.key] = opt"
-              class="py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2"
-              :class="answers[currentQuestion.key] === opt
-                ? 'bg-kitty-400 text-white border-kitty-400 shadow-kitty-sm'
-                : 'bg-kitty-50 text-gray-600 border-kitty-100 hover:border-kitty-300'"
-            >
-              {{ opt }}
-            </button>
-          </div>
-
-          <!-- Multi choice -->
-          <div v-else-if="currentQuestion.type === 'multi'" class="flex flex-wrap gap-2">
-            <button
-              v-for="opt in currentQuestion.options"
-              :key="opt"
-              @click="toggleMulti(currentQuestion.key, opt)"
-              class="py-2 px-4 rounded-full text-sm font-medium transition-all border-2"
-              :class="answers[currentQuestion.key].includes(opt)
-                ? 'bg-kitty-400 text-white border-kitty-400 shadow-kitty-sm'
-                : 'bg-kitty-50 text-gray-600 border-kitty-100 hover:border-kitty-300'"
-            >
-              {{ opt }}
-            </button>
-          </div>
-
-          <!-- Slider -->
-          <div v-else-if="currentQuestion.type === 'slider'" class="mt-2">
-            <SliderInput
-              :label="''"
-              v-model="answers[currentQuestion.key]"
-              :min="currentQuestion.min"
-              :max="currentQuestion.max"
-            />
-          </div>
-
-          <!-- Text input -->
-          <div v-else-if="currentQuestion.type === 'text'">
-            <textarea
-              v-model="answers[currentQuestion.key]"
-              :placeholder="currentQuestion.placeholder"
-              rows="3"
-              class="w-full px-4 py-3 rounded-xl border border-kitty-200 text-sm focus:outline-none focus:ring-2 focus:ring-kitty-300 bg-kitty-50 resize-none"
-            />
-          </div>
-        </div>
-
-        <!-- Navigation buttons -->
-        <div class="flex items-center justify-between mt-6 pt-4 border-t border-kitty-100">
-          <button
-            @click="prevStep"
-            :disabled="currentStep === 0"
-            class="px-4 py-2 rounded-full text-sm font-medium text-kitty-500 border border-kitty-200 hover:bg-kitty-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            上一题
-          </button>
-          <button
-            v-if="currentStep < totalSteps - 1"
-            @click="nextStep"
-            :disabled="!canProceed"
-            class="px-6 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r from-kitty-400 to-kitty-500 hover:shadow-kitty transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            下一题
-          </button>
-          <button
-            v-else
-            @click="handleSubmit"
-            :disabled="loading || !canProceed"
-            class="px-6 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r from-kitty-400 to-kitty-500 hover:shadow-kitty transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {{ loading ? '分析中...' : '提交日报' }}
-          </button>
-        </div>
+    <!-- ═══ VIEW 1: Today's report already exists ═══ -->
+    <div v-else-if="hasTodayReport" class="p-4 space-y-4">
+      <!-- Date badge -->
+      <div class="text-center">
+        <span class="inline-block px-4 py-1.5 rounded-full bg-kitty-100 text-kitty-600 text-xs font-bold">
+          📅 {{ todayLabel }}
+        </span>
       </div>
 
-      <!-- Step dots -->
-      <div class="flex justify-center gap-1.5 mt-4">
-        <button
-          v-for="(_, idx) in questions"
-          :key="idx"
-          @click="currentStep = idx"
-          class="w-2 h-2 rounded-full transition-all"
-          :class="idx === currentStep ? 'bg-kitty-400 w-5' : idx < currentStep ? 'bg-kitty-300' : 'bg-kitty-100'"
-        />
-      </div>
-    </div>
-
-    <!-- Submitted: show result -->
-    <div v-else class="p-4 space-y-4">
+      <!-- Already submitted -->
       <div class="bg-white rounded-2xl p-5 shadow-kitty-sm text-center">
-        <div class="text-4xl mb-2">🎀</div>
-        <h3 class="text-lg font-bold text-kitty-500 mb-1">日报已提交！</h3>
-        <p class="text-sm text-gray-400">Kitty 已收到你的健康信息</p>
+        <div class="text-4xl mb-2">✅</div>
+        <h3 class="text-lg font-bold text-kitty-500 mb-1">今天的日报已完成！</h3>
+        <p class="text-sm text-gray-400">明天再来填写新日报吧～</p>
       </div>
 
-      <div class="bg-white rounded-2xl p-5 shadow-kitty-sm">
+      <!-- Today's answers summary -->
+      <div v-if="todayAnswers" class="bg-white rounded-2xl p-5 shadow-kitty-sm">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-lg">📝</span>
+          <h3 class="text-sm font-bold text-gray-700">今天的回答</h3>
+        </div>
+        <div class="space-y-1.5">
+          <div
+            v-for="q in questions"
+            :key="q.key"
+            class="flex items-start gap-2 text-sm"
+          >
+            <span class="text-gray-300 flex-shrink-0">{{ q.icon }}</span>
+            <span class="text-gray-400">{{ q.label }}</span>
+            <span class="text-gray-700 font-medium">{{ formatAnswerValue(q, todayAnswers[q.key]) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's advice -->
+      <div v-if="todayAdvice" class="bg-white rounded-2xl p-5 shadow-kitty-sm">
         <div class="flex items-center gap-2 mb-3">
           <span class="text-lg">🐱</span>
           <h3 class="text-sm font-bold text-gray-700">Kitty 的建议</h3>
         </div>
-        <div class="text-sm text-gray-600 leading-relaxed md-content" v-html="renderedAdvice"></div>
+        <div class="text-sm text-gray-600 leading-relaxed md-content" v-html="renderedTodayAdvice"></div>
       </div>
     </div>
+
+    <!-- ═══ VIEW 2: Not submitted yet → form ═══ -->
+    <template v-else>
+      <!-- Progress bar -->
+      <div class="px-4 pt-3 pb-1">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs text-kitty-500 font-medium">
+            {{ submitted ? '已完成' : `${currentStep + 1} / ${totalSteps}` }}
+          </span>
+          <span class="text-xs text-gray-400">
+            {{ submitted ? '100%' : `${Math.round(((currentStep + 1) / totalSteps) * 100)}%` }}
+          </span>
+        </div>
+        <div class="h-2 bg-kitty-100 rounded-full overflow-hidden">
+          <div
+            class="h-full bg-gradient-to-r from-kitty-400 to-kitty-300 rounded-full transition-all duration-300"
+            :style="{ width: submitted ? '100%' : `${((currentStep + 1) / totalSteps) * 100}%` }"
+          />
+        </div>
+      </div>
+
+      <!-- ═══ SUB-VIEW 2a: Form questions ═══ -->
+      <div v-if="!submitted" class="p-4">
+        <div class="bg-white rounded-2xl p-5 shadow-kitty-sm">
+          <!-- Current question -->
+          <div v-if="currentQuestion">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-xl">{{ currentQuestion.icon }}</span>
+              <h3 class="text-base font-bold text-gray-800">{{ currentQuestion.label }}</h3>
+            </div>
+
+            <!-- Single choice -->
+            <div v-if="currentQuestion.type === 'single'" class="grid grid-cols-2 gap-2">
+              <button
+                v-for="opt in currentQuestion.options"
+                :key="opt"
+                @click="answers[currentQuestion.key] = opt"
+                class="py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2"
+                :class="answers[currentQuestion.key] === opt
+                  ? 'bg-kitty-400 text-white border-kitty-400 shadow-kitty-sm'
+                  : 'bg-kitty-50 text-gray-600 border-kitty-100 hover:border-kitty-300'"
+              >
+                {{ opt }}
+              </button>
+            </div>
+
+            <!-- Multi choice -->
+            <div v-else-if="currentQuestion.type === 'multi'" class="flex flex-wrap gap-2">
+              <button
+                v-for="opt in currentQuestion.options"
+                :key="opt"
+                @click="toggleMulti(currentQuestion.key, opt)"
+                class="py-2 px-4 rounded-full text-sm font-medium transition-all border-2"
+                :class="answers[currentQuestion.key].includes(opt)
+                  ? 'bg-kitty-400 text-white border-kitty-400 shadow-kitty-sm'
+                  : 'bg-kitty-50 text-gray-600 border-kitty-100 hover:border-kitty-300'"
+              >
+                {{ opt }}
+              </button>
+            </div>
+
+            <!-- Slider -->
+            <div v-else-if="currentQuestion.type === 'slider'" class="mt-2">
+              <SliderInput
+                :label="''"
+                v-model="answers[currentQuestion.key]"
+                :min="currentQuestion.min"
+                :max="currentQuestion.max"
+              />
+            </div>
+
+            <!-- Text input -->
+            <div v-else-if="currentQuestion.type === 'text'">
+              <textarea
+                v-model="answers[currentQuestion.key]"
+                :placeholder="currentQuestion.placeholder"
+                rows="3"
+                class="w-full px-4 py-3 rounded-xl border border-kitty-200 text-sm focus:outline-none focus:ring-2 focus:ring-kitty-300 bg-kitty-50 resize-none"
+              />
+            </div>
+          </div>
+
+          <!-- Navigation buttons -->
+          <div class="flex items-center justify-between mt-6 pt-4 border-t border-kitty-100">
+            <button
+              @click="prevStep"
+              :disabled="currentStep === 0"
+              class="px-4 py-2 rounded-full text-sm font-medium text-kitty-500 border border-kitty-200 hover:bg-kitty-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              上一题
+            </button>
+            <button
+              v-if="currentStep < totalSteps - 1"
+              @click="nextStep"
+              :disabled="!canProceed"
+              class="px-6 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r from-kitty-400 to-kitty-500 hover:shadow-kitty transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              下一题
+            </button>
+            <button
+              v-else
+              @click="handleSubmit"
+              :disabled="loading || !canProceed"
+              class="px-6 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r from-kitty-400 to-kitty-500 hover:shadow-kitty transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {{ loading ? '分析中...' : '提交日报' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Step dots -->
+        <div class="flex justify-center gap-1.5 mt-4">
+          <button
+            v-for="(_, idx) in questions"
+            :key="idx"
+            @click="currentStep = idx"
+            class="w-2 h-2 rounded-full transition-all"
+            :class="idx === currentStep ? 'bg-kitty-400 w-5' : idx < currentStep ? 'bg-kitty-300' : 'bg-kitty-100'"
+          />
+        </div>
+      </div>
+
+      <!-- ═══ SUB-VIEW 2b: Just submitted → show result ═══ -->
+      <div v-else class="p-4 space-y-4">
+        <div class="bg-white rounded-2xl p-5 shadow-kitty-sm text-center">
+          <div class="text-4xl mb-2">🎀</div>
+          <h3 class="text-lg font-bold text-kitty-500 mb-1">日报已提交！</h3>
+          <p class="text-sm text-gray-400">Kitty 已收到你的健康信息</p>
+          <p class="text-xs text-gray-300 mt-1">明天再来填写新日报吧～</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 shadow-kitty-sm">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-lg">🐱</span>
+            <h3 class="text-sm font-bold text-gray-700">Kitty 的建议</h3>
+          </div>
+          <div class="text-sm text-gray-600 leading-relaxed md-content" v-html="renderedAdvice"></div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>

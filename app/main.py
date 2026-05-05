@@ -46,6 +46,29 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             log.warning("database_init_failed", error=str(e))
 
+    # Ensure daily_reports table (raw SQL to avoid mapper conflicts)
+    try:
+        from app.database import engine
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            await conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS daily_reports ("
+                "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "  user_id TEXT NOT NULL,"
+                "  report_date DATE NOT NULL,"
+                "  answers TEXT NOT NULL,"
+                "  advice TEXT NOT NULL,"
+                "  created_at DATETIME DEFAULT (datetime('now'))"
+                ")"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_daily_reports_user_date "
+                "ON daily_reports (user_id, report_date)"
+            ))
+        log.info("daily_reports_table_ready")
+    except Exception as e:
+        log.warning("daily_reports_table_init_failed", error=str(e))
+
     # Ensure Qdrant collections (use when QDRANT_URL is set, regardless of mode)
     if settings.qdrant_url:
         try:
@@ -149,6 +172,92 @@ def create_app() -> FastAPI:
             "tool_calls_made": result.get("tool_calls_made", []),
             "latency_ms": result.get("latency_ms", 0),
             "references": [],
+        }
+
+    # ── Daily Report (one per user per day) ───────────────
+    @app.get("/api/demo/daily-report", tags=["demo"])
+    async def get_daily_report(user_id: str = "demo_user"):
+        """Get today's daily report if it exists."""
+        from datetime import date
+        from app.database import engine
+        from sqlalchemy import text
+
+        today = date.today()
+        async with engine.connect() as conn:
+            result = await conn.execute(
+                text("SELECT * FROM daily_reports WHERE user_id = :uid AND report_date = :d"),
+                {"uid": user_id, "d": today.isoformat()},
+            )
+            row = result.fetchone()
+
+        if row is None:
+            return {"exists": False, "report": None}
+
+        import json
+        return {
+            "exists": True,
+            "report": {
+                "id": row.id,
+                "user_id": row.user_id,
+                "report_date": str(row.report_date),
+                "answers": json.loads(row.answers),
+                "advice": row.advice,
+                "created_at": str(row.created_at) if row.created_at else None,
+            },
+        }
+
+    @app.post("/api/demo/daily-report", tags=["demo"])
+    async def save_daily_report(request: Request):
+        """Save today's daily report (upsert)."""
+        from datetime import date
+        from app.database import engine
+        from sqlalchemy import text
+        import json
+
+        body = await request.json()
+        user_id = body.get("user_id", "demo_user")
+        answers = body.get("answers", {})
+        advice = body.get("advice", "")
+
+        today = date.today()
+        answers_json = json.dumps(answers, ensure_ascii=False)
+
+        async with engine.connect() as conn:
+            # Upsert: check if today's report exists
+            result = await conn.execute(
+                text("SELECT id FROM daily_reports WHERE user_id = :uid AND report_date = :d"),
+                {"uid": user_id, "d": today.isoformat()},
+            )
+            existing = result.fetchone()
+
+            if existing:
+                await conn.execute(
+                    text("UPDATE daily_reports SET answers = :a, advice = :adv WHERE id = :id"),
+                    {"a": answers_json, "adv": advice, "id": existing.id},
+                )
+                report_id = existing.id
+            else:
+                result = await conn.execute(
+                    text(
+                        "INSERT INTO daily_reports (user_id, report_date, answers, advice, created_at) "
+                        "VALUES (:uid, :d, :a, :adv, datetime('now')) RETURNING id, user_id, report_date, answers, advice"
+                    ),
+                    {"uid": user_id, "d": today.isoformat(), "a": answers_json, "adv": advice},
+                )
+                row = result.fetchone()
+                report_id = row.id
+
+            await conn.commit()
+
+        return {
+            "ok": True,
+            "report": {
+                "id": report_id,
+                "user_id": user_id,
+                "report_date": str(today),
+                "answers": answers,
+                "advice": advice,
+            },
         }
 
     # ── Health Check ─────────────────────────────────────
