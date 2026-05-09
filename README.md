@@ -10,6 +10,18 @@
 
 ---
 
+## Demo 演示
+
+<p align="center">
+  <img src="docs/assets/demo-chat.png" alt="HEI-agent demo chat screenshot" width="430" />
+</p>
+
+<p align="center">
+  <sub>移动端聊天 Demo：健康问答 → RAG 知识库引用 → Tool Intent 与响应耗时展示</sub>
+</p>
+
+---
+
 ## 架构概览
 
 ```
