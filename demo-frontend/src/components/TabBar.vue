@@ -16,7 +16,7 @@ const currentPath = computed(() => route.path)
 </script>
 
 <template>
-  <nav class="flex border-t border-kitty-100 bg-white shadow-inner">
+  <nav class="relative z-30 flex border-t border-kitty-100 bg-white shadow-inner overflow-visible">
     <button
       v-for="tab in tabs"
       :key="tab.path"
