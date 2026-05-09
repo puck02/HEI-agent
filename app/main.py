@@ -214,6 +214,11 @@ def create_app() -> FastAPI:
             "session_id": session_id or "demo_session",
             "tool_calls_made": result.get("tool_calls_made", []),
             "latency_ms": result.get("latency_ms", 0),
+            "trace_id": result.get("trace_id"),
+            "trace": result.get("trace", []),
+            "iterations": result.get("iterations", 0),
+            "needs_confirmation": result.get("needs_confirmation", False),
+            "pending_tool": result.get("pending_tool"),
             "references": [],
         }
 

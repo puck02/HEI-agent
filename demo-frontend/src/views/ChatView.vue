@@ -50,9 +50,22 @@ const handleSend = async () => {
     store.addMessage({
       role: 'assistant',
       content: data.response,
-      intent: data.intent,
+      intent: data.tool_calls_made?.join(', ') || data.intent,
       latency: data.latency_ms,
       references: data.references || [],
+      traceId: data.trace_id,
+    })
+    store.addTraceTurn({
+      trace_id: data.trace_id,
+      session_id: data.session_id || sessionId,
+      message: text,
+      answer: data.response,
+      latency_ms: data.latency_ms,
+      iterations: data.iterations,
+      tool_calls_made: data.tool_calls_made || [],
+      needs_confirmation: data.needs_confirmation,
+      pending_tool: data.pending_tool,
+      trace: data.trace || [],
     })
     sessionStore.incrementMessageCount(sessionId)
   } catch {

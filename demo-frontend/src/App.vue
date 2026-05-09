@@ -1,12 +1,16 @@
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import NavBar from './components/NavBar.vue'
 import TabBar from './components/TabBar.vue'
 import SessionSidebar from './components/SessionSidebar.vue'
 import { useSessionStore } from './stores/session'
 import { useChatStore } from './stores/chat'
 
+const route = useRoute()
 const sessionStore = useSessionStore()
 const chatStore = useChatStore()
+const isMonitor = computed(() => route.path.startsWith('/monitor'))
 
 const handleNewSession = () => {
   chatStore.clearMessages()
@@ -32,7 +36,9 @@ const handleSelectSession = async (sessionId) => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen max-w-lg mx-auto bg-kitty-50 shadow-xl overflow-hidden relative">
+  <router-view v-if="isMonitor" />
+
+  <div v-else class="flex flex-col h-screen max-w-lg mx-auto bg-kitty-50 shadow-xl overflow-hidden relative">
     <!-- Subtle background image -->
     <div class="absolute inset-0 opacity-[0.05] pointer-events-none" style="background-image: url('/images/background01.png'); background-size: cover; background-position: center;"></div>
 

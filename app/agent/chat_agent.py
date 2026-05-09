@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from litellm import acompletion
@@ -81,6 +82,63 @@ class ChatAgent:
             return user_context + SYSTEM_PROMPT + "\n\n---\n\n" + context
         return user_context + SYSTEM_PROMPT
 
+    def _trace_event(
+        self,
+        event_type: str,
+        phase: str,
+        name: str,
+        status: str = "ok",
+        duration_ms: int | None = None,
+        input: dict[str, Any] | None = None,
+        output_preview: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build a compact, frontend-safe trace event for one agent turn."""
+        event: dict[str, Any] = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "type": event_type,
+            "phase": phase,
+            "name": name,
+            "status": status,
+        }
+        if duration_ms is not None:
+            event["duration_ms"] = duration_ms
+        if input:
+            event["input"] = self._sanitize_trace_payload(input)
+        if output_preview:
+            event["output_preview"] = self._preview(output_preview)
+        if metadata:
+            event["metadata"] = metadata
+        return event
+
+    def _sanitize_trace_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Keep trace useful without leaking large/sensitive payloads."""
+        sensitive = {"api_key", "token", "password", "secret", "authorization"}
+        safe: dict[str, Any] = {}
+        for key, value in payload.items():
+            if key.lower() in sensitive:
+                safe[key] = "[REDACTED]"
+            elif isinstance(value, str):
+                safe[key] = self._preview(value, limit=160)
+            else:
+                safe[key] = value
+        return safe
+
+    def _preview(self, value: Any, limit: int = 220) -> str:
+        text = str(value).replace("\n", " ").strip()
+        return text if len(text) <= limit else text[:limit] + "..."
+
+    def _tool_name_and_args(self, tool_call: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        func = tool_call.get("function", {})
+        name = func.get("name", "unknown")
+        args = func.get("arguments", {})
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                args = {}
+        return name, args if isinstance(args, dict) else {}
+
     async def chat(
         self,
         user_id: str,
@@ -98,7 +156,14 @@ class ChatAgent:
         Returns: dict with keys: answer, tool_calls_made, iterations, latency_ms
         """
         started_at = time.perf_counter()
+        trace_id = f"trace_{int(time.time() * 1000)}"
         tool_calls_made: list[str] = []
+        trace: list[dict[str, Any]] = [
+            self._trace_event(
+                "agent", "start", "ChatAgent.chat", input={"user_id": user_id, "session_id": session_id, "message": message},
+                metadata={"trace_id": trace_id},
+            )
+        ]
 
         # Build initial messages with dynamic system prompt
         messages: list[dict[str, Any]] = [{"role": "system", "content": self._build_system_prompt(user_id)}]
@@ -126,7 +191,13 @@ class ChatAgent:
                 },
             }
 
+            exec_started = time.perf_counter()
             result = await self.registry.execute_write_tool(tool_call)
+            trace.append(self._trace_event(
+                "tool_call", "confirmation_execute", tool_name,
+                duration_ms=int((time.perf_counter() - exec_started) * 1000),
+                input=tool_args, output_preview=result.get("content", ""),
+            ))
 
             # Insert proper assistant message with tool_calls before tool result
             messages.append({
@@ -146,6 +217,8 @@ class ChatAgent:
                     "tool_calls_made": tool_calls_made,
                     "iterations": 0,
                     "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                    "trace_id": trace_id,
+                    "trace": trace,
                 }
 
             # Generate follow-up response after executing the tool
@@ -155,6 +228,8 @@ class ChatAgent:
                 "tool_calls_made": tool_calls_made,
                 "iterations": 0,
                 "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                "trace_id": trace_id,
+                "trace": trace,
             }
 
         # Add user message
@@ -162,12 +237,18 @@ class ChatAgent:
 
         # Daily report: use two-phase approach (DeepSeek-safe)
         if self._is_daily_report(message):
-            return await self._two_phase_chat(messages, started_at, tool_calls_made)
+            return await self._two_phase_chat(messages, started_at, tool_calls_made, trace, trace_id)
 
         # Pre-route strong write intents (bypass LLM for write tool selection)
         pre_route = self._pre_route_write_intent(message, user_id)
         if pre_route is not None:
             pre_route["latency_ms"] = int((time.perf_counter() - started_at) * 1000)
+            trace.append(self._trace_event(
+                "routing", "pre_route", pre_route.get("pending_tool", "write_tool"),
+                status="pending", output_preview=pre_route.get("answer", ""),
+            ))
+            pre_route["trace_id"] = trace_id
+            pre_route["trace"] = trace
             return pre_route
 
         # ReAct loop
@@ -175,7 +256,14 @@ class ChatAgent:
             tool_schemas = self.registry.get_tool_schemas()
 
             try:
+                llm_started = time.perf_counter()
                 response = await self._call_llm_with_tools(messages, tool_schemas)
+                trace.append(self._trace_event(
+                    "llm_call", f"react_iteration_{iteration + 1}", "tool_selection",
+                    duration_ms=int((time.perf_counter() - llm_started) * 1000),
+                    metadata={"tool_choice": "auto", "tools_available": len(tool_schemas)},
+                    output_preview=response.get("content", ""),
+                ))
             except Exception as e:
                 log.exception("llm_call_failed iteration=%d", iteration)
                 return {
@@ -183,6 +271,8 @@ class ChatAgent:
                     "tool_calls_made": tool_calls_made,
                     "iterations": iteration + 1,
                     "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                    "trace_id": trace_id,
+                    "trace": trace,
                 }
 
             # Check for tool calls
@@ -195,6 +285,8 @@ class ChatAgent:
                     "tool_calls_made": tool_calls_made,
                     "iterations": iteration + 1,
                     "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                    "trace_id": trace_id,
+                    "trace": trace,
                 }
 
             # Separate read and write tool calls
@@ -211,12 +303,19 @@ class ChatAgent:
 
             # Execute read tools in parallel
             if read_calls:
+                read_started = time.perf_counter()
                 read_results = await self.registry.execute_read_tools(read_calls)
+                read_duration_ms = int((time.perf_counter() - read_started) * 1000)
 
                 for r in read_results:
-                    tool_calls_made.append(
-                        f"read:{next(tc['function']['name'] for tc in read_calls if tc.get('id') == r.get('tool_call_id'))}"
-                    )
+                    matching = next(tc for tc in read_calls if tc.get('id') == r.get('tool_call_id'))
+                    tool_name, tool_args = self._tool_name_and_args(matching)
+                    tool_calls_made.append(f"read:{tool_name}")
+                    trace.append(self._trace_event(
+                        "tool_call", f"react_iteration_{iteration + 1}", tool_name,
+                        duration_ms=read_duration_ms, input=tool_args, output_preview=r.get("content", ""),
+                        metadata={"read_or_write": "read", "parallel_batch_size": len(read_calls)},
+                    ))
 
                 if single_round:
                     # Single-round: return tool results directly without follow-up LLM call
@@ -228,6 +327,8 @@ class ChatAgent:
                         "tool_calls_made": tool_calls_made,
                         "iterations": iteration + 1,
                         "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                        "trace_id": trace_id,
+                        "trace": trace,
                     }
 
                 # Wrap tool results as user context + synthesize with plain LLM
@@ -248,16 +349,25 @@ class ChatAgent:
                 })
 
                 try:
+                    synth_started = time.perf_counter()
                     final_response = await self._call_llm(messages)
+                    trace.append(self._trace_event(
+                        "llm_call", "synthesis", "final_answer",
+                        duration_ms=int((time.perf_counter() - synth_started) * 1000),
+                        output_preview=final_response,
+                    ))
                 except Exception:
                     log.exception("react_synthesis_failed")
                     final_response = tool_outputs
+                    trace.append(self._trace_event("llm_call", "synthesis", "final_answer", status="error"))
 
                 return {
                     "answer": final_response,
                     "tool_calls_made": tool_calls_made,
                     "iterations": iteration + 1,
                     "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                    "trace_id": trace_id,
+                    "trace": trace,
                 }
 
             # Handle write tool — needs confirmation
@@ -273,6 +383,10 @@ class ChatAgent:
 
                 # Store as pending — ask user to confirm
                 self.registry.set_pending(write_name, write_args)
+                trace.append(self._trace_event(
+                    "confirmation", f"react_iteration_{iteration + 1}", write_name,
+                    status="pending", input=write_args, output_preview="等待用户确认后执行写工具",
+                ))
 
                 tool_calls_made.append(f"pending:{write_name}")
                 return {
@@ -282,6 +396,8 @@ class ChatAgent:
                     "latency_ms": int((time.perf_counter() - started_at) * 1000),
                     "needs_confirmation": True,
                     "pending_tool": write_name,
+                    "trace_id": trace_id,
+                    "trace": trace,
                 }
 
         # Max iterations reached
@@ -290,6 +406,8 @@ class ChatAgent:
             "tool_calls_made": tool_calls_made,
             "iterations": MAX_REACT_ITERATIONS,
             "latency_ms": int((time.perf_counter() - started_at) * 1000),
+            "trace_id": trace_id,
+            "trace": trace,
         }
 
     # ── Helpers ────────────────────────────────────────────
@@ -303,6 +421,8 @@ class ChatAgent:
         messages: list[dict[str, Any]],
         started_at: float,
         tool_calls_made: list[str],
+        trace: list[dict[str, Any]],
+        trace_id: str,
     ) -> dict[str, Any]:
         """Two-phase chat: Phase 1 (LLM+tools→decide), Phase 2 (plain LLM→synthesize).
 
@@ -323,6 +443,8 @@ class ChatAgent:
                 "tool_calls_made": tool_calls_made,
                 "iterations": 0,
                 "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                "trace_id": trace_id,
+                "trace": trace,
             }
 
         tool_calls = self._extract_tool_calls(response)
@@ -334,13 +456,22 @@ class ChatAgent:
                 "tool_calls_made": tool_calls_made,
                 "iterations": 1,
                 "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                "trace_id": trace_id,
+                "trace": trace,
             }
 
         # Execute read tools and collect results
+        read_started = time.perf_counter()
         read_results = await self.registry.execute_read_tools(tool_calls)
-        for tc in tool_calls:
-            name = tc.get("function", {}).get("name", "unknown")
+        read_duration_ms = int((time.perf_counter() - read_started) * 1000)
+        for tc, result in zip(tool_calls, read_results):
+            name, args = self._tool_name_and_args(tc)
             tool_calls_made.append(f"read:{name}")
+            trace.append(self._trace_event(
+                "tool_call", "daily_report_phase_1", name,
+                duration_ms=read_duration_ms, input=args, output_preview=result.get("content", ""),
+                metadata={"read_or_write": "read", "parallel_batch_size": len(tool_calls)},
+            ))
 
         tool_outputs = "\n\n".join(
             f"[{r.get('tool_call_id', '')[:8]}] {r.get('content', '')}"
@@ -359,16 +490,25 @@ class ChatAgent:
         })
 
         try:
+            synth_started = time.perf_counter()
             final_response = await self._call_llm(messages)
+            trace.append(self._trace_event(
+                "llm_call", "daily_report_phase_2", "synthesis",
+                duration_ms=int((time.perf_counter() - synth_started) * 1000),
+                output_preview=final_response,
+            ))
         except Exception:
             log.exception("two_phase_llm_failed phase=2")
             final_response = tool_outputs  # Fallback: return raw tool results
+            trace.append(self._trace_event("llm_call", "daily_report_phase_2", "synthesis", status="error"))
 
         return {
             "answer": final_response,
             "tool_calls_made": tool_calls_made,
             "iterations": 2,
             "latency_ms": int((time.perf_counter() - started_at) * 1000),
+            "trace_id": trace_id,
+            "trace": trace,
         }
 
     def _is_confirmation(self, message: str) -> bool:
