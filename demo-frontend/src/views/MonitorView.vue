@@ -44,6 +44,14 @@ function short(text, limit = 90) {
   if (!text) return '—'
   return text.length > limit ? text.slice(0, limit) + '…' : text
 }
+
+function selectedTools(event) {
+  return event?.metadata?.selected_tools || []
+}
+
+function hasSelectedTools(event) {
+  return selectedTools(event).length > 0
+}
 </script>
 
 <template>
@@ -160,6 +168,25 @@ function short(text, limit = 90) {
                     <span class="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-slate-300">{{ event.phase }}</span>
                   </div>
                   <p v-if="event.output_preview" class="mb-3 rounded-xl border border-white/8 bg-black/20 p-3 text-sm leading-6 text-slate-300">{{ event.output_preview }}</p>
+                  <div v-if="hasSelectedTools(event)" class="mb-3 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-3">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Selected tools</p>
+                      <span class="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[10px] text-cyan-100">{{ selectedTools(event).length }} call(s)</span>
+                    </div>
+                    <div class="space-y-2">
+                      <div
+                        v-for="tool in selectedTools(event)"
+                        :key="`${event.ts}-${tool.name}`"
+                        class="rounded-lg border border-cyan-300/10 bg-black/25 p-2"
+                      >
+                        <div class="mb-1 flex items-center gap-2">
+                          <span class="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.9)]"></span>
+                          <span class="font-mono text-xs font-semibold text-cyan-100">{{ tool.name }}</span>
+                        </div>
+                        <pre class="max-h-28 overflow-auto whitespace-pre-wrap rounded-md bg-black/30 p-2 text-[11px] leading-5 text-cyan-50/80">{{ prettyJson(tool.arguments) }}</pre>
+                      </div>
+                    </div>
+                  </div>
                   <details v-if="event.input || event.metadata" class="group rounded-xl border border-white/8 bg-black/25">
                     <summary class="cursor-pointer list-none px-3 py-2 text-xs text-slate-400 transition group-open:text-indigo-200">查看参数与 metadata</summary>
                     <pre class="overflow-x-auto border-t border-white/8 p-3 text-xs leading-5 text-slate-300">{{ prettyJson({ input: event.input, metadata: event.metadata }) }}</pre>

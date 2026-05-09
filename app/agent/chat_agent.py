@@ -139,6 +139,19 @@ class ChatAgent:
                 args = {}
         return name, args if isinstance(args, dict) else {}
 
+    def _summarize_tool_calls(self, tool_calls: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+        """Return frontend-friendly selected tool names and sanitized arguments."""
+        if not tool_calls:
+            return []
+        selected = []
+        for tc in tool_calls:
+            name, args = self._tool_name_and_args(tc)
+            selected.append({
+                "name": name,
+                "arguments": self._sanitize_trace_payload(args),
+            })
+        return selected
+
     async def chat(
         self,
         user_id: str,
@@ -258,12 +271,6 @@ class ChatAgent:
             try:
                 llm_started = time.perf_counter()
                 response = await self._call_llm_with_tools(messages, tool_schemas)
-                trace.append(self._trace_event(
-                    "llm_call", f"react_iteration_{iteration + 1}", "tool_selection",
-                    duration_ms=int((time.perf_counter() - llm_started) * 1000),
-                    metadata={"tool_choice": "auto", "tools_available": len(tool_schemas)},
-                    output_preview=response.get("content", ""),
-                ))
             except Exception as e:
                 log.exception("llm_call_failed iteration=%d", iteration)
                 return {
@@ -277,6 +284,18 @@ class ChatAgent:
 
             # Check for tool calls
             tool_calls = self._extract_tool_calls(response)
+            selected_tools = self._summarize_tool_calls(tool_calls)
+            trace.append(self._trace_event(
+                "llm_call", f"react_iteration_{iteration + 1}", "tool_selection",
+                duration_ms=int((time.perf_counter() - llm_started) * 1000),
+                metadata={
+                    "tool_choice": "auto",
+                    "tools_available": len(tool_schemas),
+                    "selected_tools": selected_tools,
+                    "selected_tool_names": [item["name"] for item in selected_tools],
+                },
+                output_preview=response.get("content", ""),
+            ))
 
             if not tool_calls:
                 # No tool calls — return final response
@@ -435,6 +454,7 @@ class ChatAgent:
         # Phase 1: LLM decides which tools to call
         tool_schemas = self.registry.get_tool_schemas()
         try:
+            llm_started = time.perf_counter()
             response = await self._call_llm_with_tools(messages, tool_schemas)
         except Exception:
             log.exception("two_phase_llm_failed phase=1")
@@ -448,6 +468,18 @@ class ChatAgent:
             }
 
         tool_calls = self._extract_tool_calls(response)
+        selected_tools = self._summarize_tool_calls(tool_calls)
+        trace.append(self._trace_event(
+            "llm_call", "daily_report_phase_1", "tool_selection",
+            duration_ms=int((time.perf_counter() - llm_started) * 1000),
+            metadata={
+                "tool_choice": "auto",
+                "tools_available": len(tool_schemas),
+                "selected_tools": selected_tools,
+                "selected_tool_names": [item["name"] for item in selected_tools],
+            },
+            output_preview=response.get("content", ""),
+        ))
 
         if not tool_calls:
             # No tools needed — just return the LLM response
