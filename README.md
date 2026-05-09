@@ -13,11 +13,11 @@
 ## Demo 演示
 
 <p align="center">
-  <img src="docs/assets/demo-chat.png" alt="HEI-agent demo chat screenshot" width="430" />
+  <img src="docs/assets/demo-chat.gif" alt="HEI-agent demo chat interaction" width="390" />
 </p>
 
 <p align="center">
-  <sub>移动端聊天 Demo：健康问答 → RAG 知识库引用 → Tool Intent 与响应耗时展示</sub>
+  <sub>移动端聊天 Demo：输入健康问题 → Kitty 思考 → RAG 知识库引用 → Tool Intent 与响应耗时展示</sub>
 </p>
 
 ---
