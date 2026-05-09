@@ -28,41 +28,43 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
     }
   };
 
-  await page.goto('http://127.0.0.1:5173', { waitUntil: 'networkidle2' });
+  const seedCommonState = async () => {
+    await page.evaluate(() => {
+      localStorage.setItem('hei-session-state', JSON.stringify({
+        sessions: [{ session_id: 'readme-gif-demo', title: '高血压饮食建议', message_count: 2, updated_at: new Date().toISOString() }],
+        currentSessionId: 'readme-gif-demo',
+        sidebarVisible: false,
+      }));
+    });
+  };
+
+  await page.goto('http://127.0.0.1:5173/chat', { waitUntil: 'networkidle2' });
   await page.evaluate(() => {
     localStorage.removeItem('hei-chat-state');
     localStorage.removeItem('hei-session-state');
   });
   await page.reload({ waitUntil: 'networkidle2' });
   await page.waitForSelector('input[placeholder="输入你的健康问题..."]');
-  await sleep(600);
-  await shot('welcome', 6);
+  await seedCommonState();
+  await sleep(500);
+  await shot('chat-welcome', 5);
 
   const question = '高血压患者饮食需要注意什么？';
   for (const ch of question) {
     await page.type('input[placeholder="输入你的健康问题..."]', ch, { delay: 18 });
-    if (Math.random() < 0.45) await shot('typing', 1);
+    if (Math.random() < 0.40) await shot('chat-typing', 1);
   }
-  await shot('typed', 5);
+  await shot('chat-typed', 4);
 
-  // Seed a realistic loading state and final answer instead of relying on network latency,
-  // so the GIF is stable and reproducible for README display.
   await page.evaluate(() => {
-    const input = document.querySelector('input[placeholder="输入你的健康问题..."]');
-    if (input) input.value = '';
     const messages = [
       { role: 'assistant', content: '你好！我是 Kitty 健康管家，有什么可以帮你的吗？' },
       { role: 'user', content: '高血压患者饮食需要注意什么？' },
     ];
     localStorage.setItem('hei-chat-state', JSON.stringify({ messages, inputText: '' }));
-    localStorage.setItem('hei-session-state', JSON.stringify({
-      sessions: [{ session_id: 'readme-gif-demo', title: '高血压饮食建议', message_count: 1, updated_at: new Date().toISOString() }],
-      currentSessionId: 'readme-gif-demo',
-      sidebarVisible: false,
-    }));
   });
   await page.reload({ waitUntil: 'networkidle2' });
-  await sleep(500);
+  await sleep(450);
   await page.evaluate(() => {
     const box = document.querySelector('.flex-1.overflow-y-auto');
     if (!box) return;
@@ -72,7 +74,7 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
     loading.innerHTML = '<span>🎀</span> 思考中...';
     box.appendChild(loading);
   });
-  await shot('loading', 10);
+  await shot('chat-loading', 7);
 
   const answer = {
     role: 'assistant',
@@ -93,8 +95,37 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
     localStorage.setItem('hei-chat-state', JSON.stringify({ messages, inputText: '' }));
   }, answer);
   await page.reload({ waitUntil: 'networkidle2' });
+  await sleep(600);
+  await shot('chat-answer', 10);
+
+  // Daily report page: show the questionnaire entry, then scroll slightly to show more fields.
+  await page.goto('http://127.0.0.1:5173/report', { waitUntil: 'networkidle2' });
+  await sleep(900);
+  await shot('report-top', 8);
+  await page.evaluate(() => {
+    const scroller = document.querySelector('main .overflow-y-auto') || document.scrollingElement;
+    if (scroller) scroller.scrollTop = 260;
+  });
+  await sleep(400);
+  await shot('report-scroll', 5);
+
+  // Insights page: summary cards + weekly trend chart + text insight.
+  await page.goto('http://127.0.0.1:5173/insights', { waitUntil: 'networkidle2' });
+  await sleep(900);
+  await shot('insights', 10);
+
+  // Medication page: add a stable demo medication if backend has none, then show form/list.
+  await page.goto('http://127.0.0.1:5173/medication', { waitUntil: 'networkidle2' });
+  await sleep(900);
+  await shot('medication-list', 7);
+  const addButton = await page.$x ? null : null;
+  const buttons = await page.$$('button');
+  for (const btn of buttons) {
+    const txt = await page.evaluate(el => el.innerText || '', btn);
+    if (txt.includes('添加药物')) { await btn.click(); break; }
+  }
   await sleep(500);
-  await shot('answer', 16);
+  await shot('medication-add', 8);
 
   await browser.close();
 

@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <sub>移动端聊天 Demo：输入健康问题 → Kitty 思考 → RAG 知识库引用 → Tool Intent 与响应耗时展示</sub>
+  <sub>移动端完整 Demo：对话问答 → RAG 引用与耗时 → 日报填写 → 健康洞察 → 用药管理</sub>
 </p>
 
 ---
@@ -101,7 +101,7 @@ Layer 4: SQLite sessions    → LLM 主动 search_sessions
 
 | Tool | 说明 | 数据源 |
 |------|------|--------|
-| `search_health` | 检索健康知识 | Qdrant `health_knowledge`（纯向量检索） |
+| `search_health` | 检索健康知识 | Qdrant `health_knowledge`（Dense + Sparse Hybrid Search + RRF + Rerank） |
 | `search_medication` | 检索药品信息 | Qdrant `medication_info` |
 | `search_tcm` | 检索中医知识 | Qdrant `tcm_wellness` |
 | `search_memory` | 关键词搜索长期记忆 | SQLite LIKE 匹配 |
@@ -166,11 +166,11 @@ HEI-agent/
 │   ├── services/                  # ⭐ 统一数据层
 │   │   ├── medication_service.py  # SQLite CRUD
 │   │   ├── health_log_service.py  # 健康日志读写
-│   │   ├── knowledge_service.py   # RAG 封装（纯向量检索）
+│   │   ├── knowledge_service.py   # RAG 封装（Qdrant Hybrid Search）
 │   │   ├── memory_service.py      # SQLite 关键词检索
 │   │   └── profile_service.py     # MEMORY.md / USER.md 管理
 │   │
-│   ├── rag/                       # RAG 引擎（Qdrant 向量检索）
+│   ├── rag/                       # RAG 引擎（Qdrant Hybrid Search）
 │   ├── llm/                       # LiteLLM 路由器
 │   ├── api/v1/                    # REST API
 │   │   ├── chat.py                # 对话接口 → ChatAgent
@@ -219,8 +219,8 @@ cp .env.example .env
 # 2. 启动 Qdrant
 docker run -d -p 6333:6333 qdrant/qdrant
 
-# 3. 导入知识库
-python scripts/ingest_knowledge.py --demo
+# 3. 导入/重建知识库（首次导入或 Hybrid Search schema 变更时使用 --recreate）
+python scripts/ingest_knowledge.py --recreate
 
 # 4. 启动后端
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -241,7 +241,7 @@ cd demo-frontend && npm install && npm run dev -- --host 0.0.0.0 --port 5173
 
 | 指标 | 结果 | 测试规模 | 说明 |
 |------|------|----------|------|
-| RAG Recall@3 | 78.9% | 57 条 | 3 个知识库，纯 Qdrant 向量检索 |
+| RAG Recall@3 | 78.9% | 57 条 | 3 个知识库，Qdrant Dense + Sparse Hybrid Search |
 | Tool 调用准确率 | 77.8% | 36 条 | LLM 自主选择 13 个 Tool |
 | 端到端延迟 P95 | 5.3s | 10 次 | 含 LLM 推理 + RAG 检索 |
 | 记忆检索 Recall@5 | 100% | 20 记忆 + 10 查询 | SQLite 关键词 LIKE 匹配 |
@@ -263,10 +263,10 @@ bash tests/run_benchmark.sh all
 |------|------|------|
 | **数据量** | 774 条 chunks | 每用户 ~50 条 |
 | **查询方式** | 自然语言问题 | LLM 生成的关键词 |
-| **检索方法** | Qdrant 纯向量 | SQLite LIKE |
+| **检索方法** | Qdrant Hybrid Search（dense vector + sparse lexical + RRF） | SQLite LIKE |
 | **成本** | Embedding API（仅导入时） | 0 API 调用 |
 
-知识库需要语义理解（"感冒怎么办"→找到"上呼吸道感染"），适合向量检索。  
+知识库既需要语义理解（"感冒怎么办"→找到"上呼吸道感染"），也需要保留疾病名、药品名、检查指标等精确词项匹配能力，所以 RAG 使用 Qdrant 原生 Hybrid Search：dense vector 负责语义召回，sparse lexical vector 负责关键词召回，再用 RRF 融合候选并交给 rerank。  
 个人记忆语料小、关键词特征明显（"青霉素""过敏"），LIKE 匹配即足够。
 
 ### 为什么让 LLM 决定搜索什么？
