@@ -18,6 +18,7 @@ from qdrant_client import models
 from app.config import get_settings
 from app.llm.router import get_llm_router
 from app.rag.engine import COLLECTIONS, get_rag_engine
+from app.rag.sparse import DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME, encode_sparse_text
 
 log = structlog.get_logger(__name__)
 
@@ -100,7 +101,10 @@ async def ingest_file(
         points.append(
             models.PointStruct(
                 id=point_id,
-                vector=embedding,
+                vector={
+                    DENSE_VECTOR_NAME: embedding,
+                    SPARSE_VECTOR_NAME: encode_sparse_text(chunk),
+                },
                 payload={
                     "content": chunk,
                     "source": file_path.name,

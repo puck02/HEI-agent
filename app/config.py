@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     rag_chunk_overlap: int = 200
     rag_top_k: int = 5
     rag_rerank_top_k: int = 20
+    rag_query_rewrite_enabled: bool = True
 
     # ── Memory ───────────────────────────────────────────
     short_term_memory_ttl: int = 86400  # 24h seconds

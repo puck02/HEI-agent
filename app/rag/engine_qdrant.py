@@ -15,6 +15,7 @@ from qdrant_client import AsyncQdrantClient, models
 
 from app.config import get_settings
 from app.llm.router import get_llm_router
+from app.rag.sparse import DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME, encode_sparse_text
 
 log = structlog.get_logger(__name__)
 
@@ -35,6 +36,7 @@ class RAGEngine:
         )
         self.top_k = settings.rag_top_k
         self.rerank_top_k = settings.rag_rerank_top_k
+        self.query_rewrite_enabled = settings.rag_query_rewrite_enabled
         self.dashscope_api_key = settings.dashscope_api_key
         self._httpx: httpx.AsyncClient | None = None
 
@@ -47,12 +49,56 @@ class RAGEngine:
             if name not in existing_names:
                 await self.client.create_collection(
                     collection_name=name,
-                    vectors_config=models.VectorParams(
-                        size=1024,  # text-embedding-v4 dimension
-                        distance=models.Distance.COSINE,
-                    ),
+                    vectors_config={
+                        DENSE_VECTOR_NAME: models.VectorParams(
+                            size=1024,  # text-embedding-v4 dimension
+                            distance=models.Distance.COSINE,
+                        )
+                    },
+                    sparse_vectors_config={
+                        SPARSE_VECTOR_NAME: models.SparseVectorParams()
+                    },
                 )
-                log.info("qdrant_collection_created", name=name)
+                log.info("qdrant_collection_created", name=name, mode="hybrid_dense_sparse")
+
+    async def _rewrite_query_for_retrieval(self, query: str) -> str:
+        """Rewrite a user query into concise retrieval keywords before embedding."""
+        if not self.query_rewrite_enabled:
+            return query
+
+        clean_query = query.strip()
+        if not clean_query:
+            return query
+
+        router = get_llm_router()
+        try:
+            result = await router.chat(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "你是健康知识库检索查询改写器。"
+                            "请把用户口语化问题改写成适合向量检索的中文关键词短句。"
+                            "保留疾病、症状、药物、饮食、运动、检查指标等核心医学概念；"
+                            "不要回答问题，不要添加用户未提到的诊断结论；"
+                            "只输出一行检索 query，最多 40 个中文字符。"
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"原始问题：{clean_query}\n检索 query：",
+                    },
+                ],
+                temperature=0.0,
+                max_tokens=80,
+            )
+            rewritten = " ".join(result.content.strip().split())
+            if rewritten and len(rewritten) <= 80:
+                log.info("rag_query_rewritten", original=query, rewritten=rewritten)
+                return rewritten
+        except Exception as e:
+            log.warning("rag_query_rewrite_failed", error=str(e))
+        return query
 
     async def retrieve(
         self,
@@ -82,21 +128,35 @@ class RAGEngine:
         if not target_collections:
             return []
 
-        # Generate query embedding
+        # Rewrite query for retrieval, then generate embedding
+        retrieval_query = await self._rewrite_query_for_retrieval(query)
         router = get_llm_router()
         try:
-            q_embedding = (await router.embed([query]))[0]
+            q_embedding = (await router.embed([retrieval_query]))[0]
         except Exception as e:
             log.error("embedding_failed", error=str(e))
             return []
 
-        # Search across collections
+        # Hybrid search across collections: dense semantic vector + sparse lexical vector.
         all_results: list[dict] = []
+        q_sparse = encode_sparse_text(retrieval_query)
         for coll_name in target_collections:
             try:
                 query_params: dict[str, Any] = {
                     "collection_name": coll_name,
-                    "query": q_embedding,
+                    "prefetch": [
+                        models.Prefetch(
+                            query=q_embedding,
+                            using=DENSE_VECTOR_NAME,
+                            limit=self.rerank_top_k,
+                        ),
+                        models.Prefetch(
+                            query=q_sparse,
+                            using=SPARSE_VECTOR_NAME,
+                            limit=self.rerank_top_k,
+                        ),
+                    ],
+                    "query": models.FusionQuery(fusion=models.Fusion.RRF),
                     "limit": self.rerank_top_k,
                     "with_payload": True,
                 }

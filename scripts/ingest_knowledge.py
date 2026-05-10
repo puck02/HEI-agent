@@ -31,6 +31,11 @@ async def main():
     parser = argparse.ArgumentParser(description="Ingest knowledge into Qdrant")
     parser.add_argument("--collection", choices=list(COLLECTION_MAP.keys()), default=None)
     parser.add_argument("--dir", type=str, default=None)
+    parser.add_argument(
+        "--recreate",
+        action="store_true",
+        help="Delete and recreate target knowledge collections before ingestion. Required when vector schema changes.",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
@@ -40,13 +45,22 @@ async def main():
     print(f"📁 Knowledge dir: {KNOWLEDGE_DIR}")
     print()
 
-    # Ensure collections exist
-    await engine.ensure_collections()
-
     if args.collection:
         collections = {args.collection: args.dir or str(COLLECTION_MAP[args.collection])}
     else:
         collections = {k: str(v) for k, v in COLLECTION_MAP.items()}
+
+    if args.recreate:
+        existing = await engine.client.get_collections()
+        existing_names = {c.name for c in existing.collections}
+        for coll_key in collections:
+            coll_name = COLLECTIONS[coll_key]
+            if coll_name in existing_names:
+                print(f"🧹 Deleting existing collection: {coll_name}")
+                await engine.client.delete_collection(collection_name=coll_name)
+
+    # Ensure collections exist after optional recreation
+    await engine.ensure_collections()
 
     total_files = 0
     total_chunks = 0

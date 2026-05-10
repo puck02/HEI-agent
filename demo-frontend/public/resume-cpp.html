@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>袁浩 - AI Agent 开发工程师</title>
+<title>袁浩 - C++ 开发工程师</title>
 <style>
   @page { size: A4; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -197,10 +197,10 @@
     <img class="photo" src="images/证件照1.jpg" alt="袁浩证件照">
     <div class="header-info">
       <h1>袁 浩</h1>
-      <div class="subtitle">AI Agent 开发工程师</div>
+      <div class="subtitle">C++ 开发工程师</div>
       <div class="contact">
-        <span>📞 133-4252-4113（微信同号）</span>
-        <span>📧 ponepuck@qq.com</span>
+        <span>手机：133-4252-4113（微信同号）</span>
+        <span>邮箱：ponepuck@qq.com</span>
       </div>
     </div>
   </div>
@@ -218,12 +218,12 @@
   <div class="section">
     <div class="section-title">专业技能</div>
     <div class="skills-grid">
-      <div class="skill-item"><b>Agent 框架：</b>LangGraph、AutoGen、了解经典agent范式如ReAct等</div>
-      <div class="skill-item"><b>RAG 工程：</b>Qdrant Hybrid Search（Dense + Sparse + RRF）+ DashScope gte-rerank 精排 | Query Rewrite</div>
-      <div class="skill-item"><b>Agent 工程：</b>了解 Claude Code、OpenClaw、Hermes 等主流 Agent 架构与工具链</div>
-      <div class="skill-item"><b>后端开发：</b>Python 异步编程（asyncio / FastAPI）、RESTful API 设计</div>
-      <div class="skill-item"><b>基础工具：</b>Git、Docker、MySQL、Redis、PostgreSQL、Qdrant</div>
-      <div class="skill-item"><b>其他：</b>C/C++、Linux 环境开发</div>
+      <div class="skill-item"><b>C++ 基础：</b>熟悉 C++17、STL 容器/算法、RAII、面向对象与常见数据结构</div>
+      <div class="skill-item"><b>Linux 开发：</b>熟悉 Linux 环境、CMake 构建、Shell 脚本、CLI 工具开发与调试</div>
+      <div class="skill-item"><b>并发与文件处理：</b>了解 std::thread/std::async、多线程分片扫描、文件 IO 与结果归并</div>
+      <div class="skill-item"><b>检索与解析：</b>掌握正则匹配、日志解析、时间窗口聚合、倒排索引与 JSON/Markdown 输出</div>
+      <div class="skill-item"><b>后端基础：</b>了解 RESTful API、认证链路、MySQL、Redis、PostgreSQL、Docker</div>
+      <div class="skill-item"><b>AI 工程：</b>了解 FastAPI、Qdrant、RAG 检索与 Agent 工具调用，可与 C++ 工具链结合</div>
     </div>
   </div>
 
@@ -233,32 +233,31 @@
 
     <div class="entry">
       <div class="entry-header">
-        <span class="entry-title">智能健康管家 — 具备长期记忆的AI健康助手</span>
-        <a href="https://github.com/puck02/HEI-agent/tree/naive-agent-mode" target="_blank" class="entry-link">HEI-agent@naive-agent-mode</a>
-        <span class="entry-date">2025.12 - 2026.5</span>
+        <span class="entry-title">LogScope-CPP — C++17 本地日志检索与诊断工具</span>
+        <span class="entry-date">2026.5</span>
       </div>
-      <div class="tech-stack">Python · FastAPI · Qdrant · SQLite · DashScope · LiteLLM · Docker · Vue 3</div>
-      <div class="entry-desc">独立开发全栈 AI 健康助手，自实现 ReAct Agent 循环，支持多轮工具调用、分层记忆和日报管理。</div>
+      <div class="tech-stack">C++17 / CMake / STL / 多线程 / 正则匹配 / 倒排索引 / Linux CLI</div>
+      <div class="entry-desc">独立实现低依赖日志分析 CLI，支持多文件扫描、日志级别统计、规则匹配、时间窗口聚合、关键词检索与 Markdown/JSON 报告输出。</div>
       <ul class="entry-list">
-        <li>自实现 ReAct 循环：while-loop 原生工具调用（13 工具），解决 DeepSeek API 不支持 tool_calls 回传的限制，设计两阶段文本合成方案保证多轮工具调用可靠性</li>
-        <li>分层记忆系统：MEMORY.md（Agent 笔记）+ USER.md（用户档案）+ SQLite 会话摘要，三要素同时注入 System Prompt，关键词 LIKE 检索，记忆召回率 100%</li>
-        <li>RAG 检索管线：LLM Query Rewrite → Qdrant 原生 Hybrid Search（dense/sparse 双路召回 + RRF 融合）→ DashScope gte-rerank 精排；三个知识库共 774 chunks，覆盖健康/用药/中医场景</li>
-        <li>全链路 Benchmark 得分 82.5/100：覆盖 RAG Recall、Tool 准确率 77.8%、Memory Recall、P95 延迟 5.3s、确认机制 100%</li>
+        <li>设计多线程 FileChunker，按字节范围切分大日志并对齐换行边界；worker 使用 thread-local ScanResult，主线程统一归并，避免共享写锁</li>
+        <li>基于 std::regex_search 与外部 profile 配置实现故障规则匹配，统计 level/rule/category/events，并保持核心扫描逻辑与业务规则解耦</li>
+        <li>实现倒排索引关键词检索，将日志 token 化为 token → posting list，支持多词交集查询、上下文输出和 top-k 控制</li>
+        <li>编写 Python benchmark 生成 5 万行日志，验证单线程/多线程/检索性能；4 线程扫描中位耗时约 7.08s</li>
       </ul>
     </div>
 
     <div class="entry">
       <div class="entry-header">
-        <span class="entry-title">Agent Office — AI 驱动的虚拟办公场景</span>
-        <span class="entry-date">2025.12 - 2026.2</span>
+        <span class="entry-title">智能健康管家 — RAG 健康助手后端服务</span>
+        <a href="https://github.com/puck02/HEI-agent/tree/naive-agent-mode" target="_blank" class="entry-link">HEI-agent@naive-agent-mode</a>
+        <span class="entry-date">2025.12 - 2026.5</span>
       </div>
-      <div class="tech-stack">Python · FastAPI · Qdrant · SQLite · Godot 4</div>
-      <div class="entry-desc">构建多角色 AI 办公室（产品经理 / UI 设计师 / Python 工程师），探索 Multi-Agent 在游戏场景的落地方案。</div>
+      <div class="tech-stack">Python / FastAPI / Qdrant / SQLite / DashScope / LiteLLM / Docker</div>
+      <div class="entry-desc">独立开发健康问答后端服务，提供多轮对话、RAG 知识库检索、会话摘要、长期记忆和前后端 API 接口。</div>
       <ul class="entry-list">
-        <li>基于角色专属 System Prompt 实现统一调度与解耦，多轮对话保持角色一致性（>20 轮无明显角色漂移）</li>
-        <li>短期会话记忆（10 条/2h TTL）+ 长期情景记忆（SQLite + Qdrant），按重要性阈值与容量策略自动清理</li>
-        <li>独立部署情感分析 Agent，Few-shot Prompt 判断情感并自动更新 NPC 好感度，动态调整回复风格</li>
-        <li>TODO：接入 Claude Code、Hermes 等主流 Agent，打造成真实可用的开发团队</li>
+        <li>设计 FastAPI 接口与 SQLite 会话/记忆存储，支持用户档案、Agent 笔记、会话摘要和日报数据管理</li>
+        <li>构建 RAG 检索链路：Query Rewrite + Qdrant Hybrid Search + RRF 融合 + DashScope rerank，知识库覆盖健康/用药/中医场景</li>
+        <li>完成全链路 Benchmark，覆盖 RAG Recall、Tool 准确率、Memory Recall、P95 延迟与确认机制，综合得分 82.5/100</li>
       </ul>
     </div>
   </div>
@@ -272,8 +271,8 @@
         <span class="entry-date">2023.6 - 2023.10</span>
       </div>
       <ul class="entry-list">
-        <li>参与后端 HTTP 请求预处理与认证链路开发，实现 CORS 跨域处理、OPTIONS 预检及基于路由白名单的鉴权放行机制，完成 JWT 令牌校验与 RSA 验签的安全模块封装</li>
-        <li>负责人员信息管理与附件上传模块的 CRUD 接口开发，接入 FastDFS 实现文件分布式存储与链接回传</li>
+        <li>参与后端认证链路开发，实现 CORS、OPTIONS 预检、JWT 校验与 RSA 验签等接口安全能力</li>
+        <li>开发人员信息管理与附件上传模块 CRUD 接口，接入 FastDFS 实现文件存储与链接回传</li>
       </ul>
     </div>
   </div>

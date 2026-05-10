@@ -11,73 +11,68 @@
     font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
     color: #2c2c2c;
     background: #f5f5f5;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.55;
   }
   .page {
     width: 210mm;
-    height: 297mm;
+    min-height: 297mm;
     margin: 0 auto;
     background: #fff;
-    padding: 6mm 20mm 12mm 20mm;
+    padding: 12mm 18mm 10mm 18mm;
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   /* ── Header ── */
   .header {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 18px;
     margin-bottom: 10px;
     padding-bottom: 8px;
     border-bottom: 2.5px solid #1a73e8;
   }
   .photo {
-    width: 95px;
-    height: 127px;
+    width: 85px;
+    height: 113px;
     object-fit: cover;
-    border-radius: 6px;
+    border-radius: 5px;
     border: 1px solid #e0e0e0;
     flex-shrink: 0;
   }
-  .header-info {
-    flex: 1;
-  }
+  .header-info { flex: 1; }
   .header-info h1 {
-    font-size: 26px;
+    font-size: 25px;
     font-weight: 700;
     color: #1a1a1a;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     letter-spacing: 2px;
   }
   .header-info .subtitle {
-    font-size: 15px;
+    font-size: 14px;
     color: #1a73e8;
     font-weight: 500;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .contact {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 20px;
-    font-size: 13px;
+    gap: 4px 20px;
+    font-size: 12.5px;
     color: #555;
-  }
-  .contact span::before {
-    margin-right: 4px;
   }
 
   /* ── Section ── */
-  .section {
-    margin-bottom: 12px;
-  }
+  .section { margin-bottom: 10px; }
   .section-title {
     font-size: 14px;
     font-weight: 700;
     color: #1a73e8;
     border-left: 4px solid #1a73e8;
     padding-left: 10px;
-    margin-bottom: 7px;
+    margin-bottom: 6px;
     letter-spacing: 1px;
   }
 
@@ -85,7 +80,7 @@
   .skills-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2px 20px;
+    gap: 2px 18px;
     font-size: 12.5px;
     line-height: 1.6;
   }
@@ -98,42 +93,41 @@
     position: absolute;
     left: 0;
     color: #1a73e8;
-    font-size: 12px;
+    font-size: 11px;
   }
 
   /* ── Project / Experience ── */
-  .entry {
-    margin-bottom: 10px;
-  }
+  .entry { margin-bottom: 8px; }
   .entry-header {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     margin-bottom: 4px;
+    flex-wrap: wrap;
   }
   .entry-title {
     font-size: 13.5px;
     font-weight: 700;
     color: #1a1a1a;
   }
+  .entry-link {
+    font-size: 11.5px;
+    color: #1a73e8;
+    text-decoration: none;
+  }
   .entry-date {
-    font-size: 12px;
+    font-size: 11.5px;
     color: #888;
     white-space: nowrap;
-  }
-  .entry-sub {
-    font-size: 12.5px;
-    color: #555;
-    margin-bottom: 3px;
   }
   .entry-desc {
     font-size: 12.5px;
     color: #444;
     margin-bottom: 3px;
-    line-height: 1.55;
+    line-height: 1.5;
   }
   .tech-stack {
-    font-size: 11.5px;
+    font-size: 12px;
     color: #777;
     margin-bottom: 3px;
   }
@@ -144,7 +138,7 @@
     line-height: 1.6;
   }
   .entry-list li {
-    padding-left: 16px;
+    padding-left: 15px;
     position: relative;
     margin-bottom: 1px;
   }
@@ -157,7 +151,7 @@
     top: 7px;
   }
 
-  /* ── Education & Awards ── */
+  /* ── Education ── */
   .edu-row {
     display: flex;
     justify-content: space-between;
@@ -165,12 +159,14 @@
     font-size: 13px;
     margin-bottom: 2px;
   }
+
+  /* ── Awards ── */
   .awards-list {
     font-size: 12.5px;
     color: #444;
-    line-height: 1.7;
+    line-height: 1.65;
     columns: 2;
-    column-gap: 24px;
+    column-gap: 22px;
     list-style: none;
   }
   .awards-list li {
@@ -181,15 +177,15 @@
     content: "✓";
     position: absolute;
     left: 0;
-    color: #34a853;
+    color: #1a73e8;
     font-size: 12px;
     font-weight: 700;
   }
 
   /* ── Print ── */
   @media print {
-    body { background: #fff; margin: 0; padding: 0; }
-    .page { box-shadow: none; margin: 0; padding: 6mm 20mm 12mm 20mm; }
+    body { background: #fff; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { box-shadow: none; margin: 0; padding: 12mm 18mm 10mm 18mm; min-height: 0; }
   }
 </style>
 </head>
@@ -198,7 +194,7 @@
 
   <!-- Header -->
   <div class="header">
-    <img class="photo" src="证件照1.jpg" alt="袁浩证件照">
+    <img class="photo" src="images/证件照1.jpg" alt="袁浩证件照">
     <div class="header-info">
       <h1>袁 浩</h1>
       <div class="subtitle">AI Agent 开发工程师</div>
@@ -209,25 +205,25 @@
     </div>
   </div>
 
-  <!-- 专业技能 -->
   <!-- 教育背景 -->
   <div class="section">
     <div class="section-title">教育背景</div>
     <div class="edu-row">
       <span><b>湖南科技大学</b>　电子信息科学与技术（本科）</span>
-      <span style="color:#888; font-size:13px;">2021 - 2025</span>
+      <span style="color:#888;">2021 - 2025</span>
     </div>
   </div>
 
+  <!-- 专业技能 -->
   <div class="section">
     <div class="section-title">专业技能</div>
     <div class="skills-grid">
-      <div class="skill-item"><b>Agent 框架：</b>ReAct / Tool Calling 自实现 | Plan-and-Solve | Reflection 范式 | LangGraph 基础</div>
-      <div class="skill-item"><b>RAG 工程：</b>Qdrant 向量检索 + DashScope gte-rerank 精排 | 分层记忆（文件 + SQLite）</div>
-      <div class="skill-item"><b>Agent工程：</b>了解 Claude Code、OpenClaw、Hermes 等主流 Agent 架构与工具链</div>
-      <div class="skill-item"><b>后端开发：</b>Python 异步编程（asyncio / FastAPI）、RESTful API 设计</div>
-      <div class="skill-item"><b>基础工具：</b>Git、Docker、MySQL、Redis、PostgreSQL、Qdrant、Elasticsearch</div>
-      <div class="skill-item"><b>其他：</b>C/C++ 、Linux 环境开发</div>
+      <div class="skill-item"><b>Agent / RAG：</b>ReAct 工具调用、Prompt 编排、Hybrid Search、RRF、rerank、长期记忆</div>
+      <div class="skill-item"><b>后端工程：</b>FastAPI、RESTful API、asyncio、SQLite 会话与记忆管理</div>
+      <div class="skill-item"><b>C++ 工程：</b>C++17、STL、CMake、多线程、正则匹配、Linux CLI 开发</div>
+      <div class="skill-item"><b>检索与诊断：</b>日志扫描、规则匹配、时间窗口聚合、倒排索引、结构化报告</div>
+      <div class="skill-item"><b>工具链：</b>Git、Docker、Linux、MySQL、Redis、PostgreSQL、Qdrant</div>
+      <div class="skill-item"><b>Agent 工具链：</b>了解 Claude Code、OpenClaw、Hermes 等主流 Agent 架构</div>
     </div>
   </div>
 
@@ -237,33 +233,30 @@
 
     <div class="entry">
       <div class="entry-header">
-        <span class="entry-title">智能健康管家 — 具备长期记忆的AI健康助手 </span>
+        <span class="entry-title">智能健康管家 — 具备长期记忆的AI健康助手</span>
         <a href="https://github.com/puck02/HEI-agent/tree/naive-agent-mode" target="_blank" class="entry-link">HEI-agent@naive-agent-mode</a>
         <span class="entry-date">2025.12 - 2026.5</span>
       </div>
-      <div class="tech-stack">Python · FastAPI · Qdrant · SQLite · DashScope · LiteLLM · Docker · Vue 3</div>
-      <div class="entry-desc">独立开发全栈 AI 健康助手，经历「LangGraph → ReAct 自实现」架构重构，支持多轮工具调用、分层记忆和日报管理。</div>
+      <div class="tech-stack">Python / FastAPI / Qdrant / SQLite / DashScope / LiteLLM / Vue3</div>
+      <div class="entry-desc">独立开发全栈 AI 健康助手，自实现 ReAct Agent 循环，支持多轮工具调用、分层记忆和日报管理。</div>
       <ul class="entry-list">
-        <li>自实现 ReAct 循环 Agent：while-loop 原生工具调用（13 工具），替代 LangGraph StateGraph；解决 DeepSeek API 不支持 tool_calls 回传的限制，设计两阶段文本合成方案保证多轮工具调用可靠性</li>
-        <li>设计分层记忆系统：MEMORY.md（Agent 笔记）+ USER.md（用户档案）+ SQLite 会话摘要，替代向量混合检索，三要素同时注入 System Prompt，关键词 LIKE 检索替代 BM25+RRF，记忆召回率 100%</li>
-        <li>RAG 检索管线：Qdrant 向量召回（cosine）→ DashScope gte-rerank 精排 → Top-5 截断；三个知识库（健康 12 篇 / 用药 5 篇 / 中医 12 篇含 7 PDF）共 774 chunks，RAG Recall 78.9%</li>
-        <li>全链路 Benchmark 得分 82.5/100：覆盖 Tool 准确率 77.8%、Reflection 评分（五维度自动打分 + 阈值重试）、P95 延迟 5.3s、确认机制 100%</li>
-        <li>Demo 模式部署上线：日报每日一次限制 + Markdown 渲染 + Vue 3 前端，无需认证，所有状态持久化至 SQLite</li>
+        <li>自实现 ReAct 工具调用循环（13 工具）与两阶段文本合成方案，解决部分模型不支持 tool_calls 回传时的多轮调用可靠性问题</li>
+        <li>构建分层记忆与 RAG 检索链路：用户档案/Agent 笔记/会话摘要 + Query Rewrite + Qdrant Hybrid Search + DashScope rerank</li>
+        <li>完成全链路 Benchmark，覆盖 RAG Recall、Tool 准确率、Memory Recall、P95 延迟与确认机制，综合得分 82.5/100</li>
       </ul>
     </div>
 
     <div class="entry">
       <div class="entry-header">
-        <span class="entry-title">Agent Office — AI 驱动的虚拟办公场景</span>
-        <span class="entry-date">2025.12 - 2026.2</span>
+        <span class="entry-title">LogScope-CPP — 面向 AgentOps 的 C++ 日志诊断 CLI</span>
+        <span class="entry-date">2026.5</span>
       </div>
-      <div class="tech-stack">Python · FastAPI · Qdrant · SQLite · Godot 4</div>
-      <div class="entry-desc">构建多角色 AI 办公室（产品经理 / UI 设计师 / Python 工程师），探索 Multi-Agent 在游戏场景的落地方案。</div>
+      <div class="tech-stack">C++17 / CMake / 多线程 / 正则匹配 / 倒排索引 / Benchmark</div>
+      <div class="entry-desc">针对 Agent/RAG 服务部署中的 Qdrant 连接失败、Provider 配置错误、API 500 等问题，实现本地日志检索与异常诊断工具。</div>
       <ul class="entry-list">
-        <li>基于角色专属 System Prompt 实现统一调度与解耦，在多轮对话中保持角色一致性（&gt;20 轮无明显角色漂移）</li>
-        <li>构建短期会话记忆（10 条、2h TTL）+ 长期情景记忆（SQLite + Qdrant 向量检索），支持按重要性阈值与容量策略自动清理</li>
-        <li>独立部署情感分析 Agent，通过 Few-shot Prompt 对每轮对话进行情感判断，自动更新 NPC 好感度并动态调整回复风格</li>
-        <li>TODO：接入Claude code、Hermes等主流Agent，打造成真实可用的开发团队</li>
+        <li>基于 profile 配置与 std::regex_search 匹配 AgentOps 故障模式，实现业务规则与 C++ 核心扫描逻辑解耦</li>
+        <li>实现多线程 FileChunker，按字节范围切分并对齐换行，worker 使用 thread-local ScanResult 后统一归并，避免共享写锁</li>
+        <li>实现倒排索引关键词检索与上下文输出；编写 benchmark 生成 5 万行日志，4 线程扫描中位耗时约 7.08s</li>
       </ul>
     </div>
   </div>
@@ -277,8 +270,8 @@
         <span class="entry-date">2023.6 - 2023.10</span>
       </div>
       <ul class="entry-list">
-        <li>参与后端 HTTP 请求预处理与认证链路开发，实现 CORS 跨域处理、OPTIONS 预检及基于路由白名单的鉴权放行机制，完成 JWT 令牌校验与 RSA 验签的安全模块封装</li>
-        <li>负责人员信息管理与附件上传模块的 CRUD 接口开发，接入 FastDFS 实现文件分布式存储与链接回传</li>
+        <li>参与后端认证链路开发，实现 CORS、OPTIONS 预检、JWT 校验与 RSA 验签等接口安全能力</li>
+        <li>开发人员信息管理与附件上传模块 CRUD 接口，接入 FastDFS 实现文件存储与链接回传</li>
       </ul>
     </div>
   </div>
@@ -291,7 +284,7 @@
       <li>信达杯智能小车竞赛 电磁赛道二等奖</li>
       <li>中科院傲来操作系统训练营 优秀营员</li>
       <li>CET-4 / CET-6</li>
-      <li>校级综合二等奖学金(rk前15%)</li>
+      <li>校级综合二等奖学金（rk 前 15%）</li>
       <li>优秀学生</li>
     </ul>
   </div>
