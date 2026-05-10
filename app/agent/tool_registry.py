@@ -67,7 +67,8 @@ class ToolRegistry:
 
     def is_write_tool(self, name: str) -> bool:
         """Check if a tool is a write (side-effect) tool."""
-        return name in self.WRITE_TOOL_NAMES
+        tool = self.get_tool(name)
+        return bool(tool and tool.get("is_write"))
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
         """Return OpenAI-compatible tool definitions for LLM function calling."""

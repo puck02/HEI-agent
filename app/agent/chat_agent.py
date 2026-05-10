@@ -12,6 +12,7 @@ from typing import Any
 from litellm import acompletion
 
 from app.agent.tool_registry import ToolRegistry
+from app.agent.tooling import InMemoryPendingActionStore, PendingAction
 from app.agent.tools import TOOL_REGISTRY
 from app.config import get_settings
 from app.services.profile_service import ProfileService
@@ -72,6 +73,7 @@ class ChatAgent:
         self.registry.register_from_registry(TOOL_REGISTRY)
         self._settings = settings
         self._profile = ProfileService()
+        self.pending_store = InMemoryPendingActionStore()
         log.info("chat_agent_initialized", tools=len(TOOL_REGISTRY))
 
     def _build_system_prompt(self, user_id: str) -> str:
@@ -184,14 +186,31 @@ class ChatAgent:
         if conversation_history:
             messages.extend(conversation_history)
 
-        # Check if this is a confirmation of a pending write
-        pending = self.registry.get_pending()
+        # Check if this is a confirmation/cancellation of a pending write
+        pending = await self.pending_store.get(user_id, session_id)
         is_confirmation = self._is_confirmation(message)
+        is_cancellation = self._is_cancellation(message)
+
+        if pending and is_cancellation:
+            cancelled = await self.pending_store.clear(user_id, session_id)
+            cancelled_tool = cancelled.tool_name if cancelled else pending.tool_name
+            trace.append(self._trace_event(
+                "confirmation", "cancel", cancelled_tool,
+                status="cancelled", output_preview="用户取消了待确认写操作",
+            ))
+            return {
+                "answer": f"好的～Kitty 已取消这次 {cancelled_tool} 操作，没有执行任何写入。",
+                "tool_calls_made": [f"cancelled:{cancelled_tool}"],
+                "iterations": 0,
+                "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                "trace_id": trace_id,
+                "trace": trace,
+            }
 
         if pending and is_confirmation:
             # Execute the pending write
-            tool_name = pending["tool_name"]
-            tool_args = pending["args"]
+            tool_name = pending.tool_name
+            tool_args = dict(pending.args)
             tool_args["user_id"] = user_id  # Inject user_id
 
             import json as _json
@@ -220,7 +239,7 @@ class ChatAgent:
             })
             messages.append(result)
 
-            self.registry.clear_pending()
+            await self.pending_store.clear(user_id, session_id)
             tool_calls_made.append(tool_name)
 
             if single_round:
@@ -253,7 +272,7 @@ class ChatAgent:
             return await self._two_phase_chat(messages, started_at, tool_calls_made, trace, trace_id)
 
         # Pre-route strong write intents (bypass LLM for write tool selection)
-        pre_route = self._pre_route_write_intent(message, user_id)
+        pre_route = await self._pre_route_write_intent(message, user_id, session_id)
         if pre_route is not None:
             pre_route["latency_ms"] = int((time.perf_counter() - started_at) * 1000)
             trace.append(self._trace_event(
@@ -401,7 +420,13 @@ class ChatAgent:
                         write_args = {}
 
                 # Store as pending — ask user to confirm
-                self.registry.set_pending(write_name, write_args)
+                await self.pending_store.set(PendingAction(
+                    user_id=user_id,
+                    session_id=session_id,
+                    tool_name=write_name,
+                    args=write_args,
+                    source="llm_tool_call",
+                ))
                 trace.append(self._trace_event(
                     "confirmation", f"react_iteration_{iteration + 1}", write_name,
                     status="pending", input=write_args, output_preview="等待用户确认后执行写工具",
@@ -549,7 +574,13 @@ class ChatAgent:
         confirmations = {"确认", "好的", "可以", "行", "yes", "ok", "confirm", "好", "嗯", "对", "是的", "没错", "执行"}
         return any(msg == c or msg.startswith(c) for c in confirmations) and len(msg) <= 10
 
-    def _pre_route_write_intent(self, message: str, user_id: str) -> dict[str, Any] | None:
+    def _is_cancellation(self, message: str) -> bool:
+        """Check if message cancels a pending action."""
+        msg = message.strip().lower()
+        cancellations = {"取消", "不用了", "算了", "不要", "不执行", "别执行", "cancel", "stop", "no"}
+        return any(msg == c or msg.startswith(c) for c in cancellations) and len(msg) <= 12
+
+    async def _pre_route_write_intent(self, message: str, user_id: str, session_id: str) -> dict[str, Any] | None:
         """Detect strong write intents and pre-route to the correct write tool directly.
 
         This bypasses the LLM for write tool selection, ensuring that
@@ -571,7 +602,7 @@ class ChatAgent:
         import re
         for pat in update_patterns:
             if re.search(pat, msg):
-                return self._build_direct_pending("update_medication", msg, user_id)
+                return await self._build_direct_pending("update_medication", msg, user_id, session_id)
 
         # Strong remove patterns
         remove_patterns = [
@@ -580,7 +611,7 @@ class ChatAgent:
         ]
         for pat in remove_patterns:
             if re.search(pat, msg):
-                return self._build_direct_pending("remove_medication", msg, user_id)
+                return await self._build_direct_pending("remove_medication", msg, user_id, session_id)
 
         # Strong add patterns
         add_patterns = [
@@ -592,7 +623,7 @@ class ChatAgent:
         ]
         for pat in add_patterns:
             if re.search(pat, msg):
-                return self._build_direct_pending("add_medication", msg, user_id)
+                return await self._build_direct_pending("add_medication", msg, user_id, session_id)
 
         # Strong log_health patterns
         log_patterns = [
@@ -601,7 +632,7 @@ class ChatAgent:
         ]
         for pat in log_patterns:
             if re.search(pat, msg):
-                return self._build_direct_pending("log_health", msg, user_id)
+                return await self._build_direct_pending("log_health", msg, user_id, session_id)
 
         # Strong remember patterns
         remember_patterns = [
@@ -610,7 +641,7 @@ class ChatAgent:
         ]
         for pat in remember_patterns:
             if re.search(pat, msg):
-                return self._build_direct_pending("remember", msg, user_id)
+                return await self._build_direct_pending("remember", msg, user_id, session_id)
 
         # Strong medication knowledge queries (dose/side-effect questions)
         med_knowledge_patterns = [
@@ -626,7 +657,7 @@ class ChatAgent:
 
         return None
 
-    def _build_direct_pending(self, tool_name: str, message: str, user_id: str) -> dict[str, Any] | None:
+    async def _build_direct_pending(self, tool_name: str, message: str, user_id: str, session_id: str) -> dict[str, Any] | None:
         """Build a pending confirmation response directly without LLM call."""
         started_at = time.perf_counter()
         args = {"user_id": user_id}
@@ -646,7 +677,13 @@ class ChatAgent:
             if name_match:
                 args["name"] = name_match.group(1).strip()
 
-        self.registry.set_pending(tool_name, args)
+        await self.pending_store.set(PendingAction(
+            user_id=user_id,
+            session_id=session_id,
+            tool_name=tool_name,
+            args=args,
+            source="pre_route",
+        ))
 
         return {
             "answer": self._build_confirmation_message(tool_name, args),
